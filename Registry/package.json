@@ -1,0 +1,48 @@
+{
+  "name": "akshara-registry",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "emulators": "firebase emulators:start --project demo-akshara",
+    "seed:demo": "tsx --env-file-if-exists=.env.local scripts/seed-demo.ts",
+    "set-admin": "tsx --env-file-if-exists=.env.local scripts/set-admin.ts",
+    "export": "tsx --env-file-if-exists=.env.local scripts/export-dataset.ts",
+    "set-admin:prod": "tsx --env-file=.env.prod scripts/set-admin.ts",
+    "export:prod": "tsx --env-file=.env.prod scripts/export-dataset.ts",
+    "env:emulators": "cp .env.emulators .env.local && echo 'Local app now uses the EMULATORS (restart npm run dev)'",
+    "env:prod": "cp .env.prod .env.local && echo 'Local app now uses the REAL akshara-fyp project (restart npm run dev)'"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
+    "nanoid": "^5.1.16",
+    "next": "15.5.28",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-zoom-pan-pinch": "^4.2.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/archiver": "^8.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.28",
+    "firebase-tools": "^15.34.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^4.1.12"
+  }
+}

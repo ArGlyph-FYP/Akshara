@@ -1,0 +1,23 @@
+# Firebase App Hosting config for project akshara-fyp.
+# The web config is public by design (security comes from the server-side checks), so it is safe to commit.
+runConfig:
+  minInstances: 0
+  maxInstances: 4
+  memoryMiB: 1024
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyBD1YLw8DamT5kehFqgQrFqwP4qNuwVXUI
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: akshara-fyp.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: akshara-fyp
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: akshara-fyp.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:6083703368:web:05418ecacc075915b8de7d
+    availability: [BUILD, RUNTIME]
