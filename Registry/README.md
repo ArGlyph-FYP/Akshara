@@ -8,7 +8,7 @@ This web app manages data collection for the Akshara study in both branches, Sin
 | **Raters** (independent, per script) | Work through their own queue: overall score, legibility, per-criterion scores, weak-region boxes. They never see participant codes |
 | **Survey readers** (Phase A) | Open a share link with no account needed, confirm they are 18+ and consent, then score pilot samples and give open-text reasons |
 
-Stack: Next.js 15 (App Router) on **Firebase App Hosting**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (email link for staff, anonymous for survey readers).
+Stack: Next.js 15 (App Router) on **Firebase App Hosting**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (password or email link for staff, anonymous for survey readers).
 
 ## How access works
 
@@ -40,14 +40,14 @@ To sign in, enter `admin@akshara.test` (or `rater1.si@akshara.test`) on `/login`
 ## Deploy to Firebase
 
 1. In the Firebase console (Blaze plan), create or select the project, then:
-   - **Authentication → Sign-in method:** enable **Email link (passwordless)** and **Anonymous**. Add your App Hosting domain under *Authorized domains*.
+   - **Authentication → Sign-in method:** enable **Email/Password** (with **Email link**) and **Anonymous**. Add your App Hosting domain under *Authorized domains*.
    - Create **Firestore** (production mode) and **Storage**.
    - **Project settings → Your apps:** add a Web app and copy its config.
 2. Put the web config into `apphosting.yaml`, and the project ID into `.firebaserc`.
 3. Deploy the rules (`npx firebase deploy --only firestore:rules,firestore:indexes,storage`), then create an App Hosting backend connected to this repo, with root directory `Registry`. Every push then deploys.
 4. Create the first admin from your machine. The real project's config is in `.env.prod`, which is gitignored; `npm run dev` stays on the emulators. Authenticate with `gcloud auth application-default login`, or paste a service account key into `.env.prod`. Then run:
    ```bash
-   npm run set-admin:prod -- you@uom.lk --name "Your Name" --scripts si
+   npm run set-admin:prod -- you@uom.lk --name "Your Name" --scripts si --password   # asks for the password, hidden
    npm run export:prod -- --out ../data/akshara     # dataset straight to disk
    ```
 5. If App Hosting logs show permission errors, give the backend's service account the *Cloud Datastore User*, *Storage Object Admin* and *Firebase Authentication Admin* roles.
@@ -59,7 +59,7 @@ To sign in, enter `admin@akshara.test` (or `rater1.si@akshara.test`) on `/login`
 3. **Samples:** approve or reject each scan, and mark a few calibration anchors with reference scores.
 4. **Survey (Phase A):** create a survey per script, tick pilot samples, open it and share the link. Download responses as CSV for thematic coding.
 5. **Criteria:** enter the rubric that comes out of the survey coding. Changing it later? Start a new version, and old ratings stay linked to their version.
-6. **Team & raters:** add raters with their script. "Generate" gives a sign-in link you can send directly if the email doesn't arrive.
+6. **Team & raters:** add raters with their script. They sign in with an emailed link, or set a password with "Forgot password?" on the login page. "Generate" gives a sign-in link you can send directly if the email doesn't arrive.
 7. **Assignments:** set raters per sample and the repeat %, then **Generate**. Run it again after each upload batch; it only adds what's missing.
 8. **Export:** one click gives the public dataset ZIP, or run `npm run export -- --out ../data/akshara` to write it to disk for training.
 
