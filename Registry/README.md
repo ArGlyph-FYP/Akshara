@@ -8,7 +8,7 @@ This web app manages data collection for the Akshara study in both branches, Sin
 | **Raters** (independent, per script) | Work through their own queue: overall score, legibility, per-criterion scores, weak-region boxes. They never see participant codes |
 | **Survey readers** (Phase A) | Open a share link with no account needed, confirm they are 18+ and consent, then score pilot samples and give open-text reasons |
 
-Stack: Next.js 15 (App Router) on **Firebase App Hosting**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (password or email link for staff, anonymous for survey readers).
+Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (password or email link for staff, anonymous for survey readers).
 
 ## How access works
 
@@ -37,20 +37,32 @@ npm run dev                     # http://localhost:3000
 
 To sign in, enter `admin@akshara.test` (or `rater1.si@akshara.test`) on `/login`. The sign-in link is printed in the emulator terminal; open it in the same browser. The seed script prints the survey link.
 
-## Deploy to Firebase
+## Deploy (Vercel + Firebase)
 
-1. In the Firebase console (Blaze plan), create or select the project, then:
-   - **Authentication → Sign-in method:** enable **Email/Password** (with **Email link**) and **Anonymous**. Add your App Hosting domain under *Authorized domains*.
-   - Create **Firestore** (production mode) and **Storage**.
-   - **Project settings → Your apps:** add a Web app and copy its config.
-2. Put the web config into `apphosting.yaml`, and the project ID into `.firebaserc`.
-3. Deploy the rules (`npx firebase deploy --only firestore:rules,firestore:indexes,storage`), then create an App Hosting backend connected to this repo, with root directory `Registry`. Every push then deploys.
-4. Create the first admin from your machine. The real project's config is in `.env.prod`, which is gitignored; `npm run dev` stays on the emulators. Authenticate with `gcloud auth application-default login`, or paste a service account key into `.env.prod`. Then run:
+The app runs on **Vercel**. Firebase provides only Auth, Firestore and Storage (project `akshara-fyp`).
+
+1. **Firebase console** (Blaze plan):
+   - **Authentication → Sign-in method:** enable **Email/Password** (with **Email link**) and **Anonymous**.
+   - **Authentication → Settings → Authorized domains:** add `registry.akshara.website` (and the `*.vercel.app` production URL).
+   - Firestore (production mode) and Storage created.
+2. **Rules:** `npx firebase deploy --only firestore:rules,firestore:indexes,storage`.
+3. **Bucket CORS**, so browsers can upload scans straight to Storage: `npm run cors:prod` (add origins with `-- --origins https://a,https://b`).
+4. **Vercel → New Project →** import the GitHub repo, set **Root Directory = `Registry`** (framework: Next.js), and add these environment variables (Production):
+   | Name | Value |
+   |---|---|
+   | `NEXT_PUBLIC_FIREBASE_API_KEY`, `…_AUTH_DOMAIN`, `…_PROJECT_ID`, `…_STORAGE_BUCKET`, `…_APP_ID` | same values as in `.env.prod` |
+   | `FIREBASE_SERVICE_ACCOUNT` | the service account JSON, one line |
+
+   Leave all `*_EMULATOR_HOST` and `NEXT_PUBLIC_USE_EMULATORS` variables **unset**.
+5. **Domain:** Vercel → Project → Settings → Domains → add `registry.akshara.website`, then at your DNS provider add a **CNAME** `registry` → `cname.vercel-dns.com` (or whatever value Vercel shows).
+6. **First admin** (from your machine; real-project config and key live in the gitignored `.env.prod`):
    ```bash
    npm run set-admin:prod -- you@uom.lk --name "Your Name" --scripts si --password   # asks for the password, hidden
-   npm run export:prod -- --out ../data/akshara     # dataset straight to disk
    ```
-5. If App Hosting logs show permission errors, give the backend's service account the *Cloud Datastore User*, *Storage Object Admin* and *Firebase Authentication Admin* roles.
+
+Because Vercel caps request and response bodies at about 4.5 MB, scans never pass through the server. Uploads go straight to Storage with signed PUT URLs, and `/api/image/*` checks access and then redirects to a 15-minute signed URL. Full image exports can exceed the function time limit, so use `npm run export:prod -- --out ../data/akshara` for those; label-only exports work fine on the Export page.
+
+`npm run env:prod` / `npm run env:emulators` switch what a local `npm run dev` talks to.
 
 ## Typical workflow
 

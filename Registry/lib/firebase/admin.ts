@@ -35,3 +35,6 @@ export function adminDb(): Firestore {
 
 export const adminAuth = () => getAuth(app());
 export const adminBucket = () => getStorage(app()).bucket();
+
+/** True when running against the local Storage emulator (where signed URLs can't be created). */
+export const storageEmulated = () => !!process.env.FIREBASE_STORAGE_EMULATOR_HOST;

@@ -97,8 +97,8 @@ export default async function ExportPage() {
         <button className="btn btn-primary">Download ZIP</button>
         <p className="text-xs text-muted">
           Contents: manifest.json (filters, counts, SHA-256 per image), samples.csv, ratings.csv, criterion_scores.csv,
-          regions.json (COCO-style boxes), criteria.json, survey_responses.csv, images/. For the training pipeline you
-          can also run <code>npm run export -- --out ../data</code>.
+          regions.json (COCO-style boxes), criteria.json, survey_responses.csv, images/. Large exports with images can
+          hit the hosting time limit; for the full dataset run <code>npm run export:prod -- --out ../data/akshara</code>.
         </p>
       </form>
     </div>

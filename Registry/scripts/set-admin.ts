@@ -4,23 +4,34 @@
 import { createInterface } from "node:readline";
 import { arg, auth, db, target } from "./admin-app";
 
-function askHidden(question: string): Promise<string> {
+/** Asks each question with the typed answer hidden. Piped (non-TTY) input is read line by line instead. */
+async function askHidden(questions: string[]): Promise<string[]> {
+  if (!process.stdin.isTTY) {
+    let input = "";
+    for await (const chunk of process.stdin) input += chunk;
+    return input.split(/\r?\n/).slice(0, questions.length);
+  }
   const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
   const out = rl as unknown as { _writeToOutput: (s: string) => void; output: NodeJS.WriteStream };
-  let prompted = false;
+  let muted = false;
   out._writeToOutput = (s: string) => {
-    if (!prompted) {
-      out.output.write(s);
-      prompted = true;
-    }
+    if (!muted) out.output.write(s);
   };
-  return new Promise((resolve) =>
-    rl.question(question, (answer) => {
-      rl.close();
-      process.stdout.write("\n");
-      resolve(answer);
-    }),
-  );
+  const answers: string[] = [];
+  for (const q of questions) {
+    answers.push(
+      await new Promise<string>((resolve) => {
+        muted = false;
+        rl.question(q, (a) => {
+          process.stdout.write("\n");
+          resolve(a);
+        });
+        muted = true;
+      }),
+    );
+  }
+  rl.close();
+  return answers;
 }
 
 async function main() {
@@ -32,9 +43,10 @@ async function main() {
   const scripts = (arg("scripts", "") ?? "").split(",").filter((s) => s === "si" || s === "ta");
   let password: string | undefined;
   if (arg("password") !== undefined) {
-    password = await askHidden("Password (min 6 characters): ");
-    if (password.length < 6) throw new Error("Password must be at least 6 characters");
-    if ((await askHidden("Repeat password: ")) !== password) throw new Error("Passwords don't match");
+    const [first = "", again = ""] = await askHidden(["Password (min 6 characters): ", "Repeat password: "]);
+    if (first.length < 6) throw new Error("Password must be at least 6 characters");
+    if (first !== again) throw new Error("Passwords don't match");
+    password = first;
   }
   const user = await auth.getUserByEmail(email).catch(() => auth.createUser({ email }));
   if (password) await auth.updateUser(user.uid, { password });

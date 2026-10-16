@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { col, getSample, getSurvey } from "@/lib/data";
-import { adminBucket } from "@/lib/firebase/admin";
+import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
 
 /**
  * Serves a scan only to someone allowed to see it:
@@ -25,6 +25,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ sampleId
     allowed = !!survey?.open && survey.sampleIds.includes(sampleId);
   }
   if (!allowed) return new Response("Forbidden", { status: 403 });
+
+  // In production, hand the browser a short-lived signed URL instead of piping the scan through
+  // this function (serverless platforms cap response bodies at ~4.5 MB). The path has no participant code.
+  if (!storageEmulated()) {
+    const [url] = await adminBucket()
+      .file(sample.imagePath)
+      .getSignedUrl({ version: "v4", action: "read", expires: Date.now() + 15 * 60 * 1000 });
+    return new Response(null, {
+      status: 302,
+      headers: { location: url, "cache-control": "private, max-age=600" },
+    });
+  }
 
   const [buf] = await adminBucket().file(sample.imagePath).download();
   return new Response(new Uint8Array(buf), {

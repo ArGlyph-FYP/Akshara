@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { normaliseCode } from "@/lib/codes";
 import { ACCEPTED_TYPES, parseScanFilename } from "@/lib/filenames";
-import { uploadScan } from "./actions";
+import { completeUpload, prepareUpload, uploadScanDirect, type ScanMeta } from "./actions";
 
 type Known = Record<string, { consent: boolean; withdrawn: boolean }>;
 
@@ -74,17 +74,30 @@ export function Uploader({ known }: { known: Known }) {
       update(r.key, { state: "uploading", message: undefined });
       try {
         const bmp = await createImageBitmap(r.file);
-        const fd = new FormData();
-        fd.set("file", r.file);
-        fd.set("code", r.code);
-        fd.set("pageNo", String(r.pageNo));
-        fd.set("width", String(bmp.width));
-        fd.set("height", String(bmp.height));
-        fd.set("register", register ? "1" : "0");
-        fd.set("replace", replace ? "1" : "0");
-        fd.set("phase", phase);
+        const meta: ScanMeta = {
+          code: r.code,
+          pageNo: r.pageNo,
+          contentType: r.file.type,
+          size: r.file.size,
+          width: bmp.width,
+          height: bmp.height,
+          register,
+          replace,
+          phase,
+        };
         bmp.close();
-        const res = await uploadScan(fd);
+        const prep = await prepareUpload(meta);
+        if (prep.error || !prep.id) throw new Error(prep.error ?? "Upload failed");
+        let res;
+        if (prep.direct) {
+          const fd = new FormData();
+          fd.set("file", r.file);
+          res = await uploadScanDirect(meta, prep.id, fd);
+        } else {
+          const put = await fetch(prep.url!, { method: "PUT", headers: { "content-type": r.file.type }, body: r.file });
+          if (!put.ok) throw new Error(`Storage upload failed (${put.status})`);
+          res = await completeUpload(meta, prep.id);
+        }
         update(r.key, res?.error ? { state: "error", message: res.error } : { state: "done", message: undefined });
       } catch (e) {
         update(r.key, { state: "error", message: e instanceof Error ? e.message : String(e) });

@@ -9,7 +9,8 @@ import { SCRIPTS, type Phase, type Script } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 900;
+// Vercel caps functions at 300 s (Hobby) to 800 s (Pro). For a full image export use `npm run export:prod`.
+export const maxDuration = 300;
 
 /** Accepts both `scripts=si,ta` and repeated `script=si&script=ta` (from the custom export form). */
 function list<T extends string>(q: URLSearchParams, plural: string, single: string, allowed: readonly T[], fallback: T[]): T[] {
