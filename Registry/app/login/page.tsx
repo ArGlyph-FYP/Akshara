@@ -21,7 +21,7 @@ type State = "idle" | "busy" | "linkSent" | "resetSent" | "finishing" | "needEma
 function message(e: unknown): string {
   if (e instanceof FirebaseError) {
     if (["auth/invalid-credential", "auth/wrong-password", "auth/user-not-found", "auth/invalid-login-credentials"].includes(e.code)) {
-      return "Wrong email or password. If you've never set a password, use “Forgot password?” or the email link.";
+      return "Firebase didn't accept this email + password. Check both with “Show” (watch for capital letters, spaces or a different saved email), or use “Forgot password?”.";
     }
     if (e.code === "auth/too-many-requests") return "Too many attempts. Wait a few minutes or reset your password.";
     if (e.code === "auth/operation-not-allowed") return "This sign-in method isn't enabled in Firebase Authentication.";
@@ -34,6 +34,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<State>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -77,7 +78,7 @@ export default function LoginPage() {
     const address = email.trim();
     if (state === "needEmail") return finishLink(address);
     setState("busy");
-    if (mode === "password") return enter(() => signInWithEmailAndPassword(clientAuth(), address, password));
+    if (mode === "password") return enter(() => signInWithEmailAndPassword(clientAuth(), address, password.trim()));
     setError(null);
     try {
       await sendSignInLinkToEmail(clientAuth(), address, { url: `${window.location.origin}/login`, handleCodeInApp: true });
@@ -149,7 +150,7 @@ export default function LoginPage() {
           )}
           <div>
             <label className="label" htmlFor="email">Email</label>
-            <input id="email" type="email" required autoComplete="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input id="email" type="email" required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           {mode === "password" && state !== "needEmail" && (
             <div>
@@ -159,15 +160,28 @@ export default function LoginPage() {
                   Forgot password?
                 </button>
               </div>
-              <input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="input pr-14"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
           )}
           <button className="btn btn-primary w-full" disabled={state === "busy"}>

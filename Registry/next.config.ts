@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
     middlewareClientMaxBodySize: "30mb",
   },
   serverExternalPackages: ["firebase-admin", "archiver"],
+  // Firestore (via google-gax) loads .proto/.json files at runtime; make sure they are shipped in every
+  // serverless function. Turbopack builds in Next 15 left them out, crashing every server route on Vercel.
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/google-gax/build/protos/**/*"],
+  },
 };
 
 export default nextConfig;
