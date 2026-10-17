@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ImageAnnotator, colorFor, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
-import type { Region, Scale, Script } from "@/lib/types";
+import type { Region, Scale } from "@/lib/types";
 import { submitRating } from "../actions";
 
 interface C {
@@ -19,7 +19,7 @@ interface C {
 
 export function RatingForm(props: {
   assignmentId: string;
-  script: Script;
+  studyId: string;
   imageSrc: string;
   isCalibration: boolean;
   position: number;
@@ -92,7 +92,7 @@ export function RatingForm(props: {
       setBusy(false);
       return setFeedback(res.anchor);
     }
-    router.push(`/rate/next?script=${props.script}`);
+    router.push(`/rate/next?study=${props.studyId}`);
   }
 
   return (
@@ -130,7 +130,7 @@ export function RatingForm(props: {
           onSelect={setSelected}
           boxes={regions.map((r) => ({ ...r, color: colorFor(cIndex[r.criterionId] ?? 0), label: label(r.criterionId) }))}
         />
-        <p className="text-xs text-muted">
+        <p className="text-xs text-muted-foreground">
           Scroll or pinch to zoom, drag to move. Press <kbd>D</kbd> to toggle region drawing; select a box and press
           Delete to remove it.
         </p>
@@ -140,12 +140,12 @@ export function RatingForm(props: {
         <section className="card space-y-3">
           <div>
             <h3 className="text-sm font-semibold">Overall aesthetic quality</h3>
-            <p className="text-xs text-muted">How good does this handwriting look as a whole?</p>
+            <p className="text-xs text-muted-foreground">How good does this handwriting look as a whole?</p>
             <ScoreButtons scale={props.overallScale} value={overall} onChange={setOverall} lowLabel="poor" highLabel="excellent" />
           </div>
           <div>
             <h3 className="text-sm font-semibold">Legibility</h3>
-            <p className="text-xs text-muted">How easy is it to read? Rate this separately from how it looks.</p>
+            <p className="text-xs text-muted-foreground">How easy is it to read? Rate this separately from how it looks.</p>
             <ScoreButtons scale={props.legibilityScale} value={legibility} onChange={setLegibility} lowLabel="hard" highLabel="easy" />
           </div>
         </section>
@@ -158,10 +158,10 @@ export function RatingForm(props: {
                 <div className="flex items-baseline gap-1.5 text-sm">
                   <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: colorFor(i) }} />
                   <span className="font-medium">{c.labelEn}</span>
-                  {c.labelLocal && <span className="text-muted">{c.labelLocal}</span>}
-                  <span className="ml-auto text-[10px] tracking-wide text-muted uppercase">{c.level}</span>
+                  {c.labelLocal && <span className="text-muted-foreground">{c.labelLocal}</span>}
+                  <span className="ml-auto text-[10px] tracking-wide text-muted-foreground uppercase">{c.level}</span>
                 </div>
-                {c.description && <p className="text-xs text-muted">{c.description}</p>}
+                {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
                 <ScoreButtons
                   scale={{ min: c.min, max: c.max }}
                   value={scores[c.id] ?? null}
@@ -175,12 +175,12 @@ export function RatingForm(props: {
         <section className="card space-y-2">
           <h3 className="text-sm font-semibold">Weak regions ({regions.length})</h3>
           {regions.length === 0 && (
-            <p className="text-xs text-muted">Optional. Use &quot;Mark weak region&quot; to box places that lower the score.</p>
+            <p className="text-xs text-muted-foreground">Optional. Use &quot;Mark weak region&quot; to box places that lower the score.</p>
           )}
           {regions.map((r, i) => (
             <div
               key={i}
-              className={`space-y-1 rounded-md border p-2 ${selected === i ? "border-accent" : "border-line"}`}
+              className={`space-y-1 rounded-md border p-2 ${selected === i ? "border-primary" : "border-line"}`}
               onClick={() => setSelected(i)}
             >
               <div className="flex items-center gap-2">
@@ -238,8 +238,8 @@ export function RatingForm(props: {
               You gave overall <b>{overall}</b> and legibility <b>{legibility}</b>. The reference is overall{" "}
               <b>{feedback.overall ?? "–"}</b> and legibility <b>{feedback.legibility ?? "–"}</b>.
             </p>
-            {feedback.note && <p className="text-sm text-muted">{feedback.note}</p>}
-            <button className="btn btn-primary w-full" onClick={() => router.push(`/rate/next?script=${props.script}`)}>
+            {feedback.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
+            <button className="btn btn-primary w-full" onClick={() => router.push(`/rate/next?study=${props.studyId}`)}>
               Continue
             </button>
           </div>

@@ -2,9 +2,10 @@
 //   npm run emulators   (in one terminal)
 //   npm run seed:demo   (in another)
 import { deflateSync } from "node:zlib";
-import { newId, newShareToken, newWriterId, formatCode } from "../lib/codes";
+import { planAllToAll, planAssignments } from "../lib/assign";
+import { newId, newWriterId, formatCode } from "../lib/codes";
 import { seededRandom } from "../lib/random";
-import type { Criterion, Participant, Phase, Sample, Script, Survey, UserDoc } from "../lib/types";
+import type { Assignment, Criterion, Participant, Phase, Sample, Script, Study, UserDoc } from "../lib/types";
 import { auth, bucket, db } from "./admin-app";
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
@@ -76,9 +77,11 @@ function fakeScan(seed: string, messiness: number, w = 1240, h = 1754): Buffer {
   ]);
 }
 
+const DEMO_PASSWORD = "Demo#2026";
 let aliasN = 1;
 async function user(email: string, displayName: string, role: UserDoc["role"], scripts: Script[]) {
   const u = await auth.getUserByEmail(email).catch(() => auth.createUser({ email }));
+  await auth.updateUser(u.uid, { password: DEMO_PASSWORD, displayName });
   const doc: UserDoc = { email, displayName, role, scripts, active: true, alias: `R${String(aliasN++).padStart(2, "0")}`, createdAt: Date.now() };
   await db.collection("users").doc(u.uid).set(doc);
   return u.uid;
@@ -133,15 +136,43 @@ async function main() {
     await db.collection("counters").doc(script).set({ nextNumber: pilot + main + 1 });
   }
 
-  const survey: Omit<Survey, "id"> = {
-    script: "si", title: "Sinhala handwriting perception (demo)", instructions: "", shareToken: newShareToken(),
-    open: true, sampleIds: pilotIds.si, createdAt: Date.now(),
-  };
-  await db.collection("surveys").doc(newId()).set(survey);
+  // A perception study (every SI rater sees every pilot sample) and a rubric study (3 raters per main sample).
+  const siRaters = (await db.collection("users").where("scripts", "array-contains", "si").where("role", "==", "rater").get()).docs.map((d) => d.id);
+  const siMain = (await db.collection("samples").where("script", "==", "si").where("phase", "==", "main").get()).docs.map((d) => ({ id: d.id, isAnchor: !!d.data().isAnchor }));
+  const studies: { study: Omit<Study, "id">; samples: { id: string; isAnchor: boolean }[]; mode: "manual" | "random" }[] = [
+    {
+      study: { script: "si", type: "perception", title: "Sinhala perception pilot (demo)", instructions: "DEMO: score each page and tell us why.", sampleIds: pilotIds.si, open: true, overallScale: { min: 1, max: 7 }, legibilityScale: null, rubricVersion: null, publicToken: "demo-si", publicOpen: true, perReader: null, createdAt: Date.now() },
+      samples: pilotIds.si.map((id) => ({ id, isAnchor: false })),
+      mode: "manual",
+    },
+    {
+      study: { script: "si", type: "rubric", title: "Sinhala main rating (demo)", instructions: "", sampleIds: siMain.map((s) => s.id), open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, createdAt: Date.now() + 1 },
+      samples: siMain,
+      mode: "random",
+    },
+  ];
+  await db.collection("studies").doc(newId()).set({
+    script: "ta", type: "perception", title: "Tamil perception pilot (demo)", instructions: "", sampleIds: pilotIds.ta, open: true,
+    overallScale: { min: 1, max: 7 }, legibilityScale: null, rubricVersion: null, publicToken: "demo-ta", publicOpen: true, perReader: 2, createdAt: Date.now(),
+  } satisfies Omit<Study, "id">);
+  for (const { study, samples, mode } of studies) {
+    const id = newId();
+    await db.collection("studies").doc(id).set(study);
+    const planned =
+      mode === "manual"
+        ? planAllToAll({ samples, raterIds: siRaters, existing: [], seed: id })
+        : planAssignments({ samples, raterIds: siRaters, existing: [], ratersPerSample: 3, repeatFraction: 0.1, seed: id }).assignments;
+    const batch = db.batch();
+    for (const a of planned) {
+      const doc: Omit<Assignment, "id"> = { ...a, studyId: id, script: study.script, status: "pending", createdAt: Date.now() };
+      batch.set(db.collection("assignments").doc(newId()), doc);
+    }
+    await batch.commit();
+  }
 
   console.log(`✓ Seeded. Admin: admin@akshara.test (uid ${adminUid}); raters: rater1..3.si@akshara.test, rater1.ta@akshara.test`);
-  console.log(`  Survey link: http://localhost:3000/survey/${survey.shareToken}`);
-  console.log("  Sign-in emails appear in the Emulator UI → Authentication, or in the emulator terminal.");
+  console.log(`  Password for every demo account: ${DEMO_PASSWORD}`);
+  console.log("  Public survey links: http://localhost:3000/join/demo-si (Sinhala), /join/demo-ta (Tamil, 2 samples per reader)");
 }
 
 main().catch((e) => {

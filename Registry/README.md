@@ -4,24 +4,24 @@ This web app manages data collection for the Akshara study in both branches, Sin
 
 | Who | What they do |
 |---|---|
-| **Admins** (research team) | Issue participant codes, record consent, upload scans (single or bulk), QC, set calibration anchors, edit the rubric, run the Phase A survey, invite raters, generate rating assignments, handle withdrawals, download the dataset |
-| **Raters** (independent, per script) | Work through their own queue: overall score, legibility, per-criterion scores, weak-region boxes. They never see participant codes |
-| **Survey readers** (Phase A) | Open a share link with no account needed, confirm they are 18+ and consent, then score pilot samples and give open-text reasons |
+| **Admins** (research team) | Three sidebar tabs: **Dataset** (upload, check, browse with filters, writers & consent, export), **Survey** (perception and rubric studies built from dataset samples, assigned to raters manually or at random; rubric criteria) and **Raters** (create logins, copy credentials, reset passwords) |
+| **Survey readers (public link)** | Open a study's public link, enter name, optional contact, age group and first-language answer, confirm 18+ and consent, then rate the samples the system hands them. No login; progress is kept on that device |
+| **Raters (accounts)** | Sign in with the email + password an admin gave them and work through each assigned study: perception (score + reasons) or rubric (overall, legibility, criteria, weak-region boxes). They never see participant codes |
 
-Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (password or email link for staff, anonymous for survey readers).
+Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (email + password; email link also works).
 
 ## How access works
 
 - Browsers only use Firebase Auth. After sign-in, the ID token is exchanged for an httpOnly `__session` cookie (`app/api/session`).
 - **All** Firestore and Storage access happens on the server with the Admin SDK, after `lib/auth.ts` checks the session and the `users/{uid}` role. `firestore.rules` and `storage.rules` deny all client access.
-- Scans are served only through `/api/image/[sampleId]`. That route allows admins, raters with an assignment for the sample, and readers of an open survey that includes it.
+- Scans are served only through `/api/image/[sampleId]`. That route allows admins and raters who have the sample in one of their studies; in production it redirects to a 15-minute signed URL.
 - Only people an admin has added (Team & raters page) can sign in as staff.
 
 ## Privacy, following the consent form
 
 - The app stores **no names and no consent scans**, only the date consent was recorded and who recorded it. Paper consent forms stay locked away.
-- Each participant gets a random `writerId`. **Public** exports contain writer IDs only, never `SI-`/`TA-` codes. Raters appear as aliases (`R03`) and survey readers as hashes (`rd_…`).
-- Withdrawing a participant excludes their samples from rating and from all exports immediately. "Delete data" then permanently removes their scans, ratings and survey responses.
+- Each participant gets a random `writerId`. **Public** exports contain writer IDs only, never `SI-`/`TA-` codes. Raters and survey readers appear only as aliases (`R03`).
+- Withdrawing a participant excludes their samples from rating and from all exports immediately. "Delete data" then permanently removes their scans and every rating of them.
 
 ## Run locally (emulators, no real project needed)
 
@@ -31,18 +31,18 @@ You need Node 20+ and **JDK 21+** for the Firebase emulators.
 cp .env.example .env.local      # already points at the emulators
 npm install
 npm run emulators               # terminal 1: auth, firestore, storage, UI on http://127.0.0.1:4000
-npm run seed:demo               # terminal 2: demo users, criteria, fake scans, an open survey
+npm run seed:demo               # terminal 2: demo users, criteria, fake scans, a perception and a rubric study
 npm run dev                     # http://localhost:3000
 ```
 
-To sign in, enter `admin@akshara.test` (or `rater1.si@akshara.test`) on `/login`. The sign-in link is printed in the emulator terminal; open it in the same browser. The seed script prints the survey link.
+Sign in on `/login` as `admin@akshara.test` (or `rater1.si@akshara.test`) with the password `Demo#2026`. Public survey links: `/join/demo-si` and `/join/demo-ta`.
 
 ## Deploy (Vercel + Firebase)
 
 The app runs on **Vercel**. Firebase provides only Auth, Firestore and Storage (project `akshara-fyp`).
 
 1. **Firebase console** (Blaze plan):
-   - **Authentication → Sign-in method:** enable **Email/Password** (with **Email link**) and **Anonymous**.
+   - **Authentication → Sign-in method:** enable **Email/Password** (Email link optional) and **Anonymous** (used by public survey links).
    - **Authentication → Settings → Authorized domains:** add `registry.akshara.website` (and the `*.vercel.app` production URL).
    - Firestore (production mode) and Storage created.
 2. **Rules:** `npx firebase deploy --only firestore:rules,firestore:indexes,storage`.
@@ -66,25 +66,27 @@ Because Vercel caps request and response bodies at about 4.5 MB, scans never pas
 
 ## Typical workflow
 
-1. **Participants:** issue codes (or register a pre-written code) and tick consent when a signed form comes back.
-2. **Upload:** drop scans named `SI-001.jpg`, `TA-014_p2.png` and so on. Anything else can be matched by typing the code.
-3. **Samples:** approve or reject each scan, and mark a few calibration anchors with reference scores.
-4. **Survey (Phase A):** create a survey per script, tick pilot samples, open it and share the link. Download responses as CSV for thematic coding.
-5. **Criteria:** enter the rubric that comes out of the survey coding. Changing it later? Start a new version, and old ratings stay linked to their version.
-6. **Team & raters:** add raters with their script. They sign in with an emailed link, or set a password with "Forgot password?" on the login page. "Generate" gives a sign-in link you can send directly if the email doesn't arrive.
-7. **Assignments:** set raters per sample and the repeat %, then **Generate**. Run it again after each upload batch; it only adds what's missing.
-8. **Export:** one click gives the public dataset ZIP, or run `npm run export -- --out ../data/akshara` to write it to disk for training.
+1. **Dataset → Writers:** issue codes (or add a pre-written code) and mark consent when a signed form comes back.
+2. **Dataset → Upload scans:** drop files named `SI-001.jpg`, `TA-014_p2.png`… (others: type the code). A thumbnail is made in the browser.
+3. **Dataset:** click a scan to check it (approve / reject) or make it a calibration anchor. Filter by *not rated / in progress / fully rated*, phase, check status or study.
+4. **Raters → Create rater:** name, email, script(s); copy the generated login details and send them yourself.
+5. **Survey → New study** (or select scans in Dataset → *Use in survey*):
+   - *Perception* (Phase A): pick 10–15 pilot samples and choose **Public link**. Share the link (one per study, so one for Sinhala and one for Tamil); everyone who opens it gives their details and rates. By default each reader rates all samples, so every sample gets many readers; set "samples per reader" to hand out the least-rated samples first instead.
+   - *Rubric* (Phase C): needs criteria (Survey → Rubric criteria); usually approved main samples, random N raters per sample with blinded repeats.
+6. **Study page:** progress by rater and by sample, add or remove a rater on a sample, *Assign* again after adding samples or raters, read responses, download CSV, close the study.
+7. **Dataset → Export:** labels-only or public ZIP; for the full image set run `npm run export:prod -- --out ../data/akshara`.
 
 ## Export layout
 
 ```
 manifest.json          filters, counts, rubric versions, sha256 per image
 samples.csv            sample_id, writer_id, script, phase, page_no, file, width, height, status, is_anchor
-ratings.csv            one row per rating: rater alias, kind (normal | anchor | repeat), overall, legibility, duration
+ratings.csv            one row per rubric rating: study, rater alias, kind (normal | anchor | repeat), overall, legibility, duration
 criterion_scores.csv   long format: rating_id × criterion_key → score
 regions.json           COCO-style boxes (pixels) with criterion category, rater and note
 criteria.json          rubric definitions, all versions
-survey_responses.csv   (optional) reader hash, native_reader, score, liked / disliked text
+perception_responses.csv  (optional) study, sample, rater alias, score, liked / disliked text
+studies.json           every study: type, scales, rubric version
 images/                {sample_id}.jpg|png
 ```
 
@@ -104,6 +106,7 @@ npm run build
 | `lib/assign.ts` | Assignment planner: anchors first, balanced coverage, blinded repeats |
 | `lib/export.ts` | Dataset builder (pure functions, unit tested) |
 | `lib/auth.ts`, `lib/data.ts` | Session and role checks, Firestore access |
-| `app/admin/*` | Admin pages; each folder has its own `actions.ts` |
-| `app/rate/*` | Rater queue and scoring screen |
-| `app/survey/[token]` | Public Phase A survey |
+| `app/admin/dataset`, `app/admin/survey`, `app/admin/raters` | The three admin tabs and their server actions |
+| `components/admin/SampleBrowser.tsx` | Shared filter bar + infinite-scroll sample grid (Dataset and study picker) |
+| `app/rate/*` | Rater home, perception form, rubric form |
+| `app/join/[token]`, `app/api/public-join` | Public survey sign-up; `lib/assign.ts → planForNewReader` hands out least-covered samples |

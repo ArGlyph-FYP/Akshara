@@ -20,7 +20,7 @@ async function main() {
   const withImages = arg("no-images") === undefined;
   console.log(`Exporting from ${target()} to ${out}`, opts);
 
-  const { data, rubricVersions } = await loadExportData(db, { includeSurveys: opts.includeSurveys });
+  const { data, rubricVersions } = await loadExportData(db);
   const build = buildExport(data, opts);
   await mkdir(out, { recursive: true });
   for (const [name, content] of Object.entries(build.files)) await writeFile(join(out, name), content);

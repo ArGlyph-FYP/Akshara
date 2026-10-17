@@ -105,9 +105,9 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <p className="text-xs font-semibold tracking-widest text-accent">AKSHARA</p>
+      <p className="text-xs font-semibold tracking-widest text-primary">AKSHARA</p>
       <h1 className="h1 mt-1">Registry sign in</h1>
-      <p className="mt-1 text-sm text-muted">For the research team and invited raters.</p>
+      <p className="mt-1 text-sm text-muted-foreground">For the research team and invited raters.</p>
 
       {state === "linkSent" ? (
         <div className="card mt-6 text-sm">
@@ -139,7 +139,7 @@ export default function LoginPage() {
                     setMode(m);
                     setError(null);
                   }}
-                  className={`rounded py-1 ${mode === m ? "bg-accent text-white" : "text-muted hover:text-ink"}`}
+                  className={`rounded py-1 ${mode === m ? "bg-primary text-white" : "text-muted-foreground hover:text-ink"}`}
                 >
                   {m === "password" ? "Password" : "Email link"}
                 </button>
@@ -154,7 +154,7 @@ export default function LoginPage() {
             <div>
               <div className="flex items-baseline justify-between">
                 <label className="label" htmlFor="password">Password</label>
-                <button type="button" onClick={forgot} className="text-xs text-muted underline hover:text-ink">
+                <button type="button" onClick={forgot} className="text-xs text-muted-foreground underline hover:text-ink">
                   Forgot password?
                 </button>
               </div>

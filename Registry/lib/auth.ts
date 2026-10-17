@@ -8,9 +8,7 @@ import type { Script, UserDoc } from "./types";
 export const SESSION_COOKIE = "__session";
 export const SESSION_DAYS = 7;
 
-export type Session =
-  | { kind: "staff"; uid: string; user: UserDoc }
-  | { kind: "reader"; uid: string };
+export type Session = { kind: "staff"; uid: string; user: UserDoc };
 
 /** Verifies the session cookie and loads the user's role. Cached per request. */
 export const getSession = cache(async (): Promise<Session | null> => {
@@ -22,7 +20,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
   } catch {
     return null; // expired, revoked or forged cookie
   }
-  if (decoded.firebase?.sign_in_provider === "anonymous") return { kind: "reader", uid: decoded.uid };
+  // Anonymous sign-ins are public-link readers; they count only once /api/public-join created their users doc.
   const snap = await adminDb().collection("users").doc(decoded.uid).get();
   const user = snap.data() as UserDoc | undefined;
   if (!user || !user.active) return null;
@@ -54,12 +52,6 @@ export async function assertAdmin() {
 export async function assertStaff() {
   const s = await getSession();
   if (s?.kind !== "staff") throw new AuthError("Sign in required");
-  return s;
-}
-
-export async function assertReader() {
-  const s = await getSession();
-  if (!s) throw new AuthError("Session expired. Reload the page.");
   return s;
 }
 

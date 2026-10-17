@@ -16,6 +16,12 @@ export interface UserDoc {
   /** Pseudonymous rater label used in exports, e.g. "R03". */
   alias: string;
   createdAt: number;
+  /** Joined through a study's public link (no password; tied to this browser). */
+  public?: boolean;
+  /** Self-reported at sign-up via a public link. */
+  nativeReader?: boolean | null;
+  ageGroup?: string | null;
+  consentedAt?: number | null;
 }
 
 export interface Participant {
@@ -42,6 +48,8 @@ export interface Sample {
   phase: Phase;
   pageNo: number;
   imagePath: string | null;
+  /** Small JPEG preview for grids; null for older uploads (the full image is used instead). */
+  thumbPath?: string | null;
   contentType: string;
   width: number;
   height: number;
@@ -77,28 +85,46 @@ export interface Scale {
 }
 
 export interface Settings {
-  overallScale: Scale;
-  legibilityScale: Scale;
-  surveyScale: Scale;
-  ratersPerSample: number;
-  /** Fraction (0–1) of each rater's items re-shown later as blinded repeats. */
-  repeatFraction: number;
+  /** Current rubric version per script; rubric studies pin the version they were created with. */
   rubricVersion: Record<Script, number>;
 }
 
-export const DEFAULT_SETTINGS: Settings = {
-  overallScale: { min: 1, max: 7 },
-  legibilityScale: { min: 1, max: 5 },
-  surveyScale: { min: 1, max: 7 },
-  ratersPerSample: 3,
-  repeatFraction: 0.1,
-  rubricVersion: { si: 1, ta: 1 },
+export const DEFAULT_SETTINGS: Settings = { rubricVersion: { si: 1, ta: 1 } };
+
+export const DEFAULT_SCALES = {
+  overall: { min: 1, max: 7 } as Scale,
+  legibility: { min: 1, max: 5 } as Scale,
 };
+
+/** perception = Phase A (score + open-text reasons); rubric = Phase C (overall, legibility, criteria, regions). */
+export type StudyType = "perception" | "rubric";
+export const STUDY_LABEL: Record<StudyType, string> = { perception: "Perception", rubric: "Rubric rating" };
+
+export interface Study {
+  id: string;
+  script: Script;
+  type: StudyType;
+  title: string;
+  instructions: string;
+  sampleIds: string[];
+  open: boolean;
+  overallScale: Scale;
+  /** Rubric studies only. */
+  legibilityScale: Scale | null;
+  rubricVersion: number | null;
+  /** Public sign-up link: anyone with /join/{publicToken} can become a reader of this study. */
+  publicToken?: string | null;
+  publicOpen?: boolean;
+  /** Samples each public reader gets (null = all of the study's samples). Least-covered samples go first. */
+  perReader?: number | null;
+  createdAt: number;
+}
 
 export type AssignmentKind = "anchor" | "normal" | "repeat";
 
 export interface Assignment {
   id: string;
+  studyId: string;
   raterId: string;
   sampleId: string;
   script: Script;
@@ -120,45 +146,23 @@ export interface Region {
 
 export interface Rating {
   id: string;
+  studyId: string;
+  studyType: StudyType;
   assignmentId: string;
   raterId: string;
   sampleId: string;
   script: Script;
   kind: AssignmentKind;
   overall: number;
-  legibility: number;
+  /** Rubric studies only. */
+  legibility: number | null;
   criterionScores: Record<string, number>;
   regions: Region[];
-  comment: string;
-  durationMs: number;
-  rubricVersion: number;
-  submittedAt: number;
-}
-
-export interface Survey {
-  id: string;
-  script: Script;
-  title: string;
-  instructions: string;
-  shareToken: string;
-  open: boolean;
-  sampleIds: string[];
-  createdAt: number;
-}
-
-export interface SurveyReader {
-  uid: string;
-  nativeReader: boolean;
-  adultConfirmed: boolean;
-  consentedAt: number;
-}
-
-export interface SurveyResponse {
-  respondentUid: string;
-  sampleId: string;
-  overall: number;
+  /** Perception studies only. */
   likedText: string;
   dislikedText: string;
+  comment: string;
   durationMs: number;
+  rubricVersion: number | null;
   submittedAt: number;
 }

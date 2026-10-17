@@ -10,9 +10,7 @@ import {
   type Sample,
   type Script,
   type Settings,
-  type Survey,
-  type SurveyReader,
-  type SurveyResponse,
+  type Study,
   type UserDoc,
 } from "./types";
 
@@ -26,7 +24,7 @@ export const col = {
   settings: () => db().collection("settings").doc("global"),
   assignments: () => db().collection("assignments"),
   ratings: () => db().collection("ratings"),
-  surveys: () => db().collection("surveys"),
+  studies: () => db().collection("studies"),
 };
 
 async function all<T>(q: Query, withId = true): Promise<T[]> {
@@ -82,56 +80,53 @@ export async function currentCriteria(script: Script): Promise<{ version: number
   return { version, criteria };
 }
 
-export async function listAssignments(filter: { raterId?: string; script?: Script; sampleId?: string } = {}): Promise<Assignment[]> {
+/** Active criteria of one rubric version (rubric studies pin the version they were created with). */
+export async function criteriaFor(script: Script, version: number): Promise<Criterion[]> {
+  return (await listCriteria(script, true)).filter((c) => c.rubricVersion === version);
+}
+
+export async function listAssignments(
+  filter: { raterId?: string; script?: Script; sampleId?: string; studyId?: string } = {},
+): Promise<Assignment[]> {
   let q: Query = col.assignments();
   for (const [k, v] of Object.entries(filter)) if (v) q = q.where(k, "==", v);
   const rows = await all<Assignment>(q);
   return rows.sort((a, b) => a.position - b.position);
 }
 
-export async function listRatings(filter: { raterId?: string; script?: Script } = {}): Promise<Rating[]> {
+export async function listRatings(
+  filter: { raterId?: string; script?: Script; studyId?: string; sampleId?: string } = {},
+): Promise<Rating[]> {
   let q: Query = col.ratings();
   for (const [k, v] of Object.entries(filter)) if (v) q = q.where(k, "==", v);
   return all<Rating>(q);
 }
 
-export async function listSurveys(): Promise<Survey[]> {
-  const rows = await all<Survey>(col.surveys());
+export async function listStudies(script?: Script): Promise<Study[]> {
+  const q = script ? col.studies().where("script", "==", script) : col.studies();
+  const rows = await all<Study>(q);
   return rows.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function getSurvey(id: string): Promise<Survey | null> {
-  const snap = await col.surveys().doc(id).get();
-  return snap.exists ? ({ id: snap.id, ...snap.data() } as Survey) : null;
-}
-
-export async function getSurveyByToken(token: string): Promise<Survey | null> {
-  const snap = await col.surveys().where("shareToken", "==", token).limit(1).get();
+export async function getStudyByPublicToken(token: string): Promise<Study | null> {
+  const snap = await col.studies().where("publicToken", "==", token).limit(1).get();
   const d = snap.docs[0];
-  return d ? ({ id: d.id, ...d.data() } as Survey) : null;
+  return d ? ({ id: d.id, ...d.data() } as Study) : null;
 }
 
-export async function listSurveyResponses(surveyId: string): Promise<SurveyResponse[]> {
-  return all<SurveyResponse>(col.surveys().doc(surveyId).collection("responses"), false);
+export async function getStudy(id: string): Promise<Study | null> {
+  const snap = await col.studies().doc(id).get();
+  return snap.exists ? ({ id: snap.id, ...snap.data() } as Study) : null;
 }
 
-export async function listSurveyReaders(surveyId: string): Promise<SurveyReader[]> {
-  return all<SurveyReader>(col.surveys().doc(surveyId).collection("readers"), false);
+/** Active raters (role rater, plus admins who rate) for a script. */
+export async function ratersFor(script: Script) {
+  return (await listUsers()).filter((u) => u.active && u.scripts.includes(script));
 }
 
-/** Ready to rate: QC-approved main-phase samples (anchors may come from any phase) and active raters of the script. */
-export async function eligibleForRating(script: Script) {
-  const [samples, users] = await Promise.all([listSamples({ script }), listUsers()]);
-  const ready = samples.filter((s) => s.status === "qc_ok" && (s.isAnchor || s.phase === "main"));
-  const raters = users.filter((u) => u.active && u.role === "rater" && u.scripts.includes(script));
-  return { ready, raters };
-}
-
-/** A rater's queue for one script, in order, plus the next pending item. */
-export async function raterQueue(raterId: string, script: Script) {
-  const items = await listAssignments({ raterId, script });
+/** A rater's queue for one study, in order, plus the next pending item. */
+export async function raterQueue(raterId: string, studyId: string) {
+  const items = await listAssignments({ raterId, studyId });
   const next = items.find((a) => a.status === "pending") ?? null;
   return { items, next, done: items.filter((a) => a.status === "done").length };
 }
-
-export const surveyResponseId = (uid: string, sampleId: string) => `${uid}_${sampleId}`;

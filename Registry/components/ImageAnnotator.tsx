@@ -107,7 +107,7 @@ export function ImageAnnotator({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img ref={img} src={src} alt="Handwriting sample" draggable={false} className="block w-full" onLoad={() => setLoaded(true)} />
-                {!loaded && <div className="absolute inset-0 grid place-items-center text-sm text-muted">Loading scan…</div>}
+                {!loaded && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">Loading scan…</div>}
                 <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1 1" preserveAspectRatio="none">
                   {boxes.map((b, i) => (
                     <rect

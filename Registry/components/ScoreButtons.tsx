@@ -27,7 +27,7 @@ export function ScoreButtons({
             aria-checked={value === v}
             onClick={() => onChange(v)}
             className={`h-9 flex-1 rounded-md border text-sm font-medium transition ${
-              value === v ? "border-accent bg-accent text-white" : "border-line bg-white hover:border-accent/50"
+              value === v ? "border-primary bg-primary text-white" : "border-line bg-white hover:border-primary/50"
             }`}
           >
             {v}
@@ -35,7 +35,7 @@ export function ScoreButtons({
         ))}
       </div>
       {(lowLabel || highLabel) && (
-        <div className="mt-0.5 flex justify-between text-[10px] text-muted">
+        <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
           <span>{lowLabel}</span>
           <span>{highLabel}</span>
         </div>

@@ -26,4 +26,4 @@ const idAlphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 16);
 /** Random writer ID, unrelated to the participant code. */
 export const newWriterId = () => `w_${alnum()}`;
 export const newId = () => idAlphabet();
-export const newShareToken = customAlphabet("23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ", 12);
+export const newPublicToken = customAlphabet("23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ", 10);

@@ -1,76 +1,70 @@
+import { CheckCircle2, MessageSquareText, Ruler } from "lucide-react";
 import Link from "next/link";
+import { Progress } from "@/components/ui/progress";
 import { requireRater } from "@/lib/auth";
-import { currentCriteria, getSettings, raterQueue } from "@/lib/data";
-import { SCRIPT_LABEL } from "@/lib/types";
+import { getStudy, listAssignments } from "@/lib/data";
+import { SCRIPT_LABEL, type Study } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 export default async function RateHome() {
   const s = await requireRater();
-  const settings = await getSettings();
-  const queues = await Promise.all(
-    s.user.scripts.map(async (script) => ({
-      script,
-      ...(await raterQueue(s.uid, script)),
-      criteria: (await currentCriteria(script)).criteria,
-    })),
-  );
+  const items = await listAssignments({ raterId: s.uid });
+  const byStudy = new Map<string, typeof items>();
+  for (const a of items) byStudy.set(a.studyId, [...(byStudy.get(a.studyId) ?? []), a]);
+  const studies = (await Promise.all([...byStudy.keys()].map((id) => getStudy(id)))).filter(Boolean) as Study[];
+  studies.sort((a, b) => Number(b.open) - Number(a.open) || b.createdAt - a.createdAt);
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <div>
-        <h1 className="h1">Welcome, {s.user.displayName}</h1>
-        <p className="mt-1 text-sm text-muted">
-          Rate how the handwriting <b>looks</b>: its visual quality and neatness. Don&apos;t judge spelling or
-          content. Score legibility separately. Use the full scale, and mark the specific places that lower the
-          score.
+        <h1 className="text-2xl font-semibold tracking-tight">Welcome, {s.user.displayName}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Judge how the handwriting <b>looks</b>, not spelling or content. There are no right answers; go with your
+          honest impression.
         </p>
       </div>
 
-      {queues.length === 0 && <p className="card text-sm">You have no scripts assigned yet. Contact the research team.</p>}
+      {studies.length === 0 && (
+        <div className="rounded-xl border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+          Nothing to rate yet. The research team will assign samples to you.
+        </div>
+      )}
 
-      {queues.map((q) => (
-        <section key={q.script} className="card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="h2">{SCRIPT_LABEL[q.script]}</h2>
-              <p className="text-sm text-muted">
-                {q.items.length === 0 ? "No items assigned yet." : `${q.done} of ${q.items.length} done`}
-              </p>
+      {studies.map((st) => {
+        const mine = (byStudy.get(st.id) ?? []).sort((a, b) => a.position - b.position);
+        const done = mine.filter((a) => a.status === "done").length;
+        const next = mine.find((a) => a.status === "pending");
+        const Icon = st.type === "perception" ? MessageSquareText : Ruler;
+        return (
+          <section key={st.id} className="space-y-4 rounded-xl border bg-card p-5">
+            <div className="flex flex-wrap items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-brand-soft text-primary">
+                <Icon className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="font-semibold">{st.title}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {SCRIPT_LABEL[st.script]} · {st.type === "perception" ? "score + your reasons" : "rubric rating"} · {done} of {mine.length} done
+                </p>
+              </div>
+              {!st.open ? (
+                <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Closed</span>
+              ) : next ? (
+                <Link href={`/rate/${next.id}`} className="btn btn-primary">
+                  {done === 0 ? "Start" : "Continue"}
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-sm text-success">
+                  <CheckCircle2 className="size-4" /> All done, thank you!
+                </span>
+              )}
             </div>
-            {q.next ? (
-              <Link href={`/rate/${q.next.id}`} className="btn btn-primary">
-                {q.done === 0 ? "Start" : "Continue"}
-              </Link>
-            ) : (
-              q.items.length > 0 && <span className="pill bg-emerald-50 text-emerald-800">All done, thank you!</span>
-            )}
-          </div>
-          {q.items.length > 0 && (
-            <div className="h-2 overflow-hidden rounded-full bg-stone-100">
-              <div className="h-full bg-accent" style={{ width: `${(100 * q.done) / q.items.length}%` }} />
-            </div>
-          )}
-          <details className="text-sm">
-            <summary className="cursor-pointer text-muted">Scoring guide</summary>
-            <ul className="mt-2 space-y-2">
-              <li>
-                <b>Overall aesthetic</b> {settings.overallScale.min}–{settings.overallScale.max}: how good the
-                handwriting looks as a whole.
-              </li>
-              <li>
-                <b>Legibility</b> {settings.legibilityScale.min}–{settings.legibilityScale.max}: how easy it is to
-                read, rated separately from how it looks.
-              </li>
-              {q.criteria.map((c) => (
-                <li key={c.id}>
-                  <b>{c.labelEn}</b> {c.labelLocal && <span>({c.labelLocal})</span>} · {c.level} · {c.scaleMin}–
-                  {c.scaleMax}
-                  {c.description && <p className="text-muted">{c.description}</p>}
-                </li>
-              ))}
-            </ul>
-          </details>
-        </section>
-      ))}
+            <Progress value={mine.length ? (100 * done) / mine.length : 0} />
+            {st.instructions && <p className="text-sm whitespace-pre-line text-muted-foreground">{st.instructions}</p>}
+          </section>
+        );
+      })}
     </main>
   );
 }

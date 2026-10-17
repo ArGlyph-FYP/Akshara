@@ -1,16 +1,5 @@
 import { toCsv } from "./csv";
-import { hashString } from "./random";
-import type {
-  Criterion,
-  Participant,
-  Phase,
-  Rating,
-  Sample,
-  Script,
-  Survey,
-  SurveyReader,
-  SurveyResponse,
-} from "./types";
+import type { Criterion, Participant, Phase, Rating, Sample, Script, Study } from "./types";
 
 export interface ExportData {
   participants: Participant[];
@@ -18,9 +7,9 @@ export interface ExportData {
   ratings: Rating[];
   criteria: Criterion[];
   raterAliases: Record<string, string>;
-  surveys: Survey[];
-  surveyReaders: (SurveyReader & { surveyId: string })[];
-  surveyResponses: (SurveyResponse & { surveyId: string })[];
+  /** Self-reported reader details (public-link sign-up). Never names or contact details. */
+  raterInfo?: Record<string, { source: "account" | "public"; firstLanguage: boolean | null; ageGroup: string | null }>;
+  studies: Study[];
 }
 
 export interface ExportOptions {
@@ -30,6 +19,7 @@ export interface ExportOptions {
   qcOnly: boolean;
   /** "public" drops participant codes; only writer IDs remain. */
   mode: "internal" | "public";
+  /** Include perception-study answers (open-text reasons). */
   includeSurveys: boolean;
 }
 
@@ -46,7 +36,6 @@ export interface ExportBuild {
 }
 
 const iso = (t: number | null | undefined) => (t ? new Date(t).toISOString() : "");
-export const readerAlias = (uid: string) => `rd_${hashString(uid).toString(16).padStart(8, "0")}`;
 
 /**
  * Builds the dataset files (CSV/JSON) for the chosen filters.
@@ -114,14 +103,16 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     .sort((a, b) => a.script.localeCompare(b.script) || a.rubricVersion - b.rubricVersion || a.order - b.order);
   const criterionById = new Map(criteria.map((c) => [c.id, c]));
 
-  const ratings = data.ratings
-    .filter((r) => sampleById.has(r.sampleId))
-    .sort((a, b) => a.submittedAt - b.submittedAt);
+  const studyById = new Map(data.studies.map((s) => [s.id, s]));
+  const all = data.ratings.filter((r) => sampleById.has(r.sampleId)).sort((a, b) => a.submittedAt - b.submittedAt);
+  const ratings = all.filter((r) => r.studyType !== "perception");
+  const perception = all.filter((r) => r.studyType === "perception");
 
   const ratingsCsv = toCsv(
-    ["rating_id", "sample_id", "writer_id", "script", "rater", "kind", "overall", "legibility", "rubric_version", "n_regions", "duration_ms", "comment", "submitted_at"],
+    ["rating_id", "study_id", "sample_id", "writer_id", "script", "rater", "kind", "overall", "legibility", "rubric_version", "n_regions", "duration_ms", "comment", "submitted_at"],
     ratings.map((r) => ({
       rating_id: r.id,
+      study_id: r.studyId,
       sample_id: r.sampleId,
       writer_id: sampleById.get(r.sampleId)!.writerId,
       script: r.script,
@@ -230,37 +221,45 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     "criteria.json": criteriaJson,
   };
 
-  let surveyResponseCount = 0;
+  files["studies.json"] = JSON.stringify(
+    data.studies
+      .filter((st) => scripts.has(st.script))
+      .map((st) => ({
+        id: st.id,
+        script: st.script,
+        type: st.type,
+        title: st.title,
+        overall_scale: [st.overallScale.min, st.overallScale.max],
+        legibility_scale: st.legibilityScale ? [st.legibilityScale.min, st.legibilityScale.max] : null,
+        rubric_version: st.rubricVersion,
+        n_samples: st.sampleIds.filter((id) => sampleById.has(id)).length,
+        created_at: iso(st.createdAt),
+      })),
+    null,
+    2,
+  );
+
   if (opts.includeSurveys) {
-    const surveys = new Map(data.surveys.filter((s) => scripts.has(s.script)).map((s) => [s.id, s]));
-    const allSamples = new Map(data.samples.map((s) => [s.id, s]));
-    const readers = new Map(data.surveyReaders.map((r) => [`${r.surveyId}:${r.uid}`, r]));
-    const rows = data.surveyResponses
-      .filter((r) => {
-        const s = allSamples.get(r.sampleId);
-        return surveys.has(r.surveyId) && s && !withdrawn.has(s.participantCode);
-      })
-      .sort((a, b) => a.submittedAt - b.submittedAt)
-      .map((r) => {
-        const s = allSamples.get(r.sampleId)!;
-        return {
-          survey_id: r.surveyId,
-          script: surveys.get(r.surveyId)!.script,
-          sample_id: r.sampleId,
-          writer_id: s.writerId,
-          reader: readerAlias(r.respondentUid),
-          native_reader: readers.get(`${r.surveyId}:${r.respondentUid}`)?.nativeReader ?? "",
-          overall: r.overall,
-          liked_text: r.likedText,
-          disliked_text: r.dislikedText,
-          duration_ms: r.durationMs,
-          submitted_at: iso(r.submittedAt),
-        };
-      });
-    surveyResponseCount = rows.length;
-    files["survey_responses.csv"] = toCsv(
-      ["survey_id", "script", "sample_id", "writer_id", "reader", "native_reader", "overall", "liked_text", "disliked_text", "duration_ms", "submitted_at"],
-      rows,
+    files["perception_responses.csv"] = toCsv(
+      ["rating_id", "study_id", "study_title", "sample_id", "writer_id", "script", "rater", "rater_source", "rater_first_language", "rater_age_group", "kind", "score", "liked_text", "disliked_text", "duration_ms", "submitted_at"],
+      perception.map((r) => ({
+        rater_source: data.raterInfo?.[r.raterId]?.source ?? "",
+        rater_first_language: data.raterInfo?.[r.raterId]?.firstLanguage ?? "",
+        rater_age_group: data.raterInfo?.[r.raterId]?.ageGroup ?? "",
+        rating_id: r.id,
+        study_id: r.studyId,
+        study_title: studyById.get(r.studyId)?.title ?? "",
+        sample_id: r.sampleId,
+        writer_id: sampleById.get(r.sampleId)!.writerId,
+        script: r.script,
+        rater: alias(r.raterId),
+        kind: r.kind,
+        score: r.overall,
+        liked_text: r.likedText,
+        disliked_text: r.dislikedText,
+        duration_ms: r.durationMs,
+        submitted_at: iso(r.submittedAt),
+      })),
     );
   }
 
@@ -273,7 +272,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       ratings: ratings.length,
       criterion_scores: criterionRows.length,
       regions: annotations.length,
-      survey_responses: surveyResponseCount,
+      perception_responses: opts.includeSurveys ? perception.length : 0,
     },
   };
 }
@@ -290,7 +289,7 @@ export function buildManifest(
       dataset: "Akshara handwriting aesthetics",
       exported_at: iso(exportedAt),
       mode: opts.mode,
-      filters: { scripts: opts.scripts, phases: opts.phases, qc_only: opts.qcOnly, include_surveys: opts.includeSurveys },
+      filters: { scripts: opts.scripts, phases: opts.phases, qc_only: opts.qcOnly, include_perception: opts.includeSurveys },
       rubric_versions: rubricVersions,
       counts: build.counts,
       notes: [

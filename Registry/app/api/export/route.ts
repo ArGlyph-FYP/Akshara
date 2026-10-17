@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 import { ZipArchive } from "archiver";
 import { getSession } from "@/lib/auth";
+import { toCsv } from "@/lib/csv";
 import { buildExport, buildManifest, type ExportOptions } from "@/lib/export";
 import { loadExportData } from "@/lib/exportData";
 import { adminBucket, adminDb } from "@/lib/firebase/admin";
@@ -21,7 +22,7 @@ function list<T extends string>(q: URLSearchParams, plural: string, single: stri
 
 /**
  * GET /api/export?scripts=si,ta&phases=main&qc=1&mode=public&surveys=1&images=1
- * Streams a ZIP. With only=survey it returns survey_responses.csv directly (optionally &survey=<id>).
+ * Streams a ZIP. With only=study&study=<id> it returns that study's responses as a CSV.
  */
 export async function GET(req: Request) {
   const s = await getSession();
@@ -33,22 +34,44 @@ export async function GET(req: Request) {
     phases: list<Phase>(q, "phases", "phase", ["pilot", "main"], ["main"]),
     qcOnly: q.get("qc") !== "0",
     mode: q.get("mode") === "internal" ? "internal" : "public",
-    includeSurveys: q.get("surveys") === "1" || q.get("only") === "survey",
+    includeSurveys: q.get("surveys") === "1",
   };
   const withImages = q.get("images") !== "0";
-  const { data, rubricVersions } = await loadExportData(adminDb(), { includeSurveys: opts.includeSurveys });
+  const { data, rubricVersions } = await loadExportData(adminDb());
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
 
-  if (q.get("only") === "survey") {
-    const surveyId = q.get("survey");
-    if (surveyId) {
-      data.surveys = data.surveys.filter((x) => x.id === surveyId);
-    }
-    const build = buildExport(data, { ...opts, phases: ["pilot", "main"], qcOnly: false });
-    return new Response(build.files["survey_responses.csv"], {
+  // One study's responses as a CSV for the team (internal: includes participant codes).
+  if (q.get("only") === "study") {
+    const study = data.studies.find((x) => x.id === q.get("study"));
+    if (!study) return new Response("Study not found", { status: 404 });
+    const samples = new Map(data.samples.map((x) => [x.id, x]));
+    const rows = data.ratings
+      .filter((r) => r.studyId === study.id)
+      .sort((a, b) => a.submittedAt - b.submittedAt)
+      .map((r) => {
+        const smp = samples.get(r.sampleId);
+        return {
+          participant_code: smp?.participantCode ?? "",
+          page_no: smp?.pageNo ?? "",
+          sample_id: r.sampleId,
+          writer_id: smp?.writerId ?? "",
+          rater: data.raterAliases[r.raterId] ?? "R?",
+          kind: r.kind,
+          score: r.overall,
+          legibility: r.legibility ?? "",
+          liked_text: r.likedText,
+          disliked_text: r.dislikedText,
+          n_regions: r.regions.length,
+          duration_ms: r.durationMs,
+          submitted_at: new Date(r.submittedAt).toISOString(),
+        };
+      });
+    const cols = ["participant_code", "page_no", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "duration_ms", "submitted_at"];
+    const slug = study.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
+    return new Response(toCsv(cols, rows), {
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="akshara-survey-${stamp}.csv"`,
+        "content-disposition": `attachment; filename="akshara-${slug}-${stamp}.csv"`,
       },
     });
   }

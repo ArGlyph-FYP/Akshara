@@ -131,3 +131,59 @@ export function planAssignments(input: AssignInput): AssignResult {
 
   return { assignments, warnings };
 }
+
+/**
+ * Manual mode: every chosen rater gets every chosen sample they don't already have in this study.
+ * Anchors go first, the rest in a per-rater random order, appended after each rater's existing queue.
+ */
+export function planAllToAll(input: {
+  samples: AssignSample[];
+  raterIds: string[];
+  existing: ExistingAssignment[];
+  seed: string;
+}): NewAssignment[] {
+  const rand = seededRandom(input.seed);
+  const out: NewAssignment[] = [];
+  for (const r of [...new Set(input.raterIds)]) {
+    const mine = input.existing.filter((a) => a.raterId === r);
+    const have = new Set(mine.filter((a) => a.kind !== "repeat").map((a) => a.sampleId));
+    const base = mine.reduce((m, a) => Math.max(m, a.position), -1) + 1;
+    const todo = input.samples.filter((s) => !have.has(s.id));
+    const ordered = [
+      ...todo.filter((s) => s.isAnchor),
+      ...shuffle(todo.filter((s) => !s.isAnchor), rand),
+    ];
+    ordered.forEach((s, i) =>
+      out.push({ raterId: r, sampleId: s.id, kind: s.isAnchor ? "anchor" : "normal", position: base + i }),
+    );
+  }
+  return out;
+}
+
+/**
+ * Public link: picks samples for one new reader. Each sample's coverage is its number of readers so far;
+ * the least-covered samples are chosen first (random among ties) so every sample collects as many readers
+ * as possible. `perReader` null = all samples. The reader's queue order is shuffled.
+ */
+export function planForNewReader(input: {
+  samples: AssignSample[];
+  readerId: string;
+  existing: ExistingAssignment[];
+  perReader: number | null;
+  seed: string;
+}): NewAssignment[] {
+  const rand = seededRandom(input.seed);
+  const coverage = new Map(input.samples.map((s) => [s.id, 0]));
+  for (const a of input.existing) {
+    if (a.kind !== "repeat" && coverage.has(a.sampleId)) coverage.set(a.sampleId, coverage.get(a.sampleId)! + 1);
+  }
+  const mine = new Set(input.existing.filter((a) => a.raterId === input.readerId).map((a) => a.sampleId));
+  const candidates = input.samples
+    .filter((s) => !mine.has(s.id))
+    .map((s) => ({ s, cov: coverage.get(s.id)!, tie: rand() }))
+    .sort((a, b) => a.cov - b.cov || a.tie - b.tie);
+  const n = input.perReader && input.perReader > 0 ? Math.min(input.perReader, candidates.length) : candidates.length;
+  const picked = shuffle(candidates.slice(0, n).map((c) => c.s), rand);
+  const base = input.existing.filter((a) => a.raterId === input.readerId).reduce((m, a) => Math.max(m, a.position), -1) + 1;
+  return picked.map((s, i) => ({ raterId: input.readerId, sampleId: s.id, kind: "normal", position: base + i }));
+}

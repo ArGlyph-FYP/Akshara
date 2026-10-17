@@ -1,10 +1,10 @@
 import { getSession } from "@/lib/auth";
-import { col, getSample, getSurvey } from "@/lib/data";
+import { col, getSample } from "@/lib/data";
 import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
 
 /**
  * Serves a scan only to someone allowed to see it:
- * admins; raters with an assignment for the sample; anyone in an open survey that includes it.
+ * admins, and raters with an assignment for the sample (in any study).
  */
 export async function GET(req: Request, { params }: { params: Promise<{ sampleId: string }> }) {
   const { sampleId } = await params;
@@ -19,18 +19,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ sampleId
     const a = await col.assignments().where("raterId", "==", session.uid).where("sampleId", "==", sampleId).limit(1).get();
     allowed = !a.empty;
   }
-  const surveyId = new URL(req.url).searchParams.get("survey");
-  if (!allowed && surveyId) {
-    const survey = await getSurvey(surveyId);
-    allowed = !!survey?.open && survey.sampleIds.includes(sampleId);
-  }
   if (!allowed) return new Response("Forbidden", { status: 403 });
+
+  // ?size=thumb serves the small preview when one exists (grids), else the full scan.
+  const wantThumb = new URL(req.url).searchParams.get("size") === "thumb";
+  const path = wantThumb && sample.thumbPath ? sample.thumbPath : sample.imagePath;
+  const contentType = path === sample.thumbPath ? "image/jpeg" : sample.contentType;
 
   // In production, hand the browser a short-lived signed URL instead of piping the scan through
   // this function (serverless platforms cap response bodies at ~4.5 MB). The path has no participant code.
   if (!storageEmulated()) {
     const [url] = await adminBucket()
-      .file(sample.imagePath)
+      .file(path)
       .getSignedUrl({ version: "v4", action: "read", expires: Date.now() + 15 * 60 * 1000 });
     return new Response(null, {
       status: 302,
@@ -38,10 +38,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ sampleId
     });
   }
 
-  const [buf] = await adminBucket().file(sample.imagePath).download();
+  const [buf] = await adminBucket().file(path).download();
   return new Response(new Uint8Array(buf), {
     headers: {
-      "content-type": sample.contentType,
+      "content-type": contentType,
       "cache-control": "private, max-age=1800",
       "x-content-type-options": "nosniff",
     },

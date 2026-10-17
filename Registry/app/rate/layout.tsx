@@ -6,19 +6,22 @@ export default async function RateLayout({ children }: { children: React.ReactNo
   const s = await requireRater();
   return (
     <div className="min-h-screen">
-      <header className="border-b border-line bg-white">
+      <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-2">
-          <Link href="/rate" className="text-sm font-semibold tracking-wider text-accent">
-            AKSHARA <span className="font-normal text-muted">· rating</span>
+          <Link href="/rate" className="flex items-center gap-2">
+            <span className="grid size-7 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">අ</span>
+            <span className="text-sm font-semibold">Akshara</span>
+            <span className="text-sm text-muted-foreground">rating</span>
           </Link>
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted">
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             {s.user.role === "admin" && (
               <Link href="/admin" className="btn btn-sm">
                 Admin
               </Link>
             )}
-            <span className="hidden font-mono md:inline">{s.user.alias}</span>
-            <SignOutButton />
+            <span className="hidden md:inline">{s.user.displayName}</span>
+            {/* Public-link readers have no password: signing out would lose their progress link. */}
+            {!s.user.public && <SignOutButton />}
           </div>
         </div>
       </header>

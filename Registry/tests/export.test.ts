@@ -37,6 +37,10 @@ const sample = (id: string, code: string, extra: Partial<Sample> = {}): Sample =
 
 const rating = (id: string, sampleId: string, extra: Partial<Rating> = {}): Rating => ({
   id,
+  studyId: "st_rubric",
+  studyType: "rubric",
+  likedText: "",
+  dislikedText: "",
   assignmentId: `a_${id}`,
   raterId: "uid1",
   sampleId,
@@ -62,15 +66,20 @@ const data: ExportData = {
     sample("s4", "SI-001", { pageNo: 2, status: "uploaded" }),
     sample("p1", "SI-001", { phase: "pilot", status: "uploaded" }),
   ],
-  ratings: [rating("r1", "s1"), rating("r2", "s2"), rating("r3", "s3", { script: "ta" })],
+  ratings: [
+    rating("r1", "s1"),
+    rating("r2", "s2"),
+    rating("r3", "s3", { script: "ta" }),
+    rating("q1", "p1", { studyId: "st_pilot", studyType: "perception", legibility: null, criterionScores: {}, regions: [], likedText: 'neat, "even"', overall: 6 }),
+  ],
   criteria: [
     { id: "c1", script: "si", rubricVersion: 1, key: "baseline", labelEn: "Baseline", labelLocal: "", description: "", level: "line", scaleMin: 1, scaleMax: 5, active: true, order: 1 },
   ],
   raterAliases: { uid1: "R01" },
-  surveys: [{ id: "sv", script: "si", title: "t", instructions: "", shareToken: "tok", open: true, sampleIds: ["p1"], createdAt: 1 }],
-  surveyReaders: [{ surveyId: "sv", uid: "reader1", nativeReader: true, adultConfirmed: true, consentedAt: 1 }],
-  surveyResponses: [
-    { surveyId: "sv", respondentUid: "reader1", sampleId: "p1", overall: 6, likedText: "neat, \"even\"", dislikedText: "", durationMs: 1, submittedAt: 3 },
+  raterInfo: { uid1: { source: "public", firstLanguage: true, ageGroup: "25-34" } },
+  studies: [
+    { id: "st_rubric", script: "si", type: "rubric", title: "Main round", instructions: "", sampleIds: ["s1", "s3"], open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, createdAt: 1 },
+    { id: "st_pilot", script: "si", type: "perception", title: "Pilot perception", instructions: "", sampleIds: ["p1"], open: true, overallScale: { min: 1, max: 7 }, legibilityScale: null, rubricVersion: null, createdAt: 1 },
   ],
 };
 
@@ -113,11 +122,20 @@ describe("buildExport", () => {
     expect(coco.images.find((i: { id: number }) => i.id === ann.image_id).sample_id).toBe("s1");
   });
 
-  it("exports survey responses with reader pseudonyms and escaped text", () => {
-    const csv = buildExport(data, opts).files["survey_responses.csv"];
+  it("puts perception answers in their own file, with rater aliases and escaped text", () => {
+    const b = buildExport(data, { ...opts, phases: ["pilot"], qcOnly: false });
+    const csv = b.files["perception_responses.csv"];
     expect(csv).toContain('"neat, ""even"""');
-    expect(csv).toMatch(/rd_[0-9a-f]{8}/);
-    expect(csv).toContain("true");
+    expect(csv).toContain("st_pilot");
+    expect(csv).toContain("R01");
+    expect(csv).toContain("public,true,25-34");
+    expect(b.files["ratings.csv"]).not.toContain("q1");
+    expect(b.counts.perception_responses).toBe(1);
+  });
+
+  it("lists studies", () => {
+    const studies = JSON.parse(buildExport(data, opts).files["studies.json"]);
+    expect(studies.map((s: { type: string }) => s.type).sort()).toEqual(["perception", "rubric"]);
   });
 
   it("manifest records counts and hashes", () => {
