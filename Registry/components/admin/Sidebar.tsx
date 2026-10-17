@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { clientAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import type { Script } from "@/lib/types";
+import { Logo } from "@/components/Logo";
 
 const NAV = [
   { href: "/admin/dataset", label: "Dataset", icon: Database, key: "dataset" },
@@ -62,12 +63,8 @@ function NavBody({ script, counts, user, onNavigate }: SidebarProps & { onNaviga
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 p-4">
-      <Link href="/admin/dataset" onClick={onNavigate} className="flex items-center gap-2 px-1">
-        <span className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">අ</span>
-        <span>
-          <span className="block text-sm font-semibold tracking-wide">Akshara</span>
-          <span className="block text-xs text-muted-foreground">Registry</span>
-        </span>
+      <Link href="/admin/dataset" onClick={onNavigate} className="px-1">
+        <Logo sub="Registry" />
       </Link>
       <ScriptSwitch script={script} />
       <nav className="flex flex-col gap-0.5">
@@ -134,7 +131,7 @@ export function Sidebar(props: SidebarProps) {
             <NavBody {...props} onNavigate={() => setOpen(false)} />
           </SheetContent>
         </Sheet>
-        <span className="text-sm font-semibold">Akshara Registry</span>
+        <Logo />
         <span className="ml-auto text-xs text-muted-foreground">{props.script === "si" ? "Sinhala" : "Tamil"}</span>
       </div>
     </>

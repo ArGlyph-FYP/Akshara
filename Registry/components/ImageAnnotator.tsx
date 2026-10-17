@@ -59,7 +59,7 @@ export function ImageAnnotator({
   });
 
   return (
-    <div className={`relative overflow-hidden rounded-lg border border-line bg-stone-200 ${heightClass}`}>
+    <div className={`relative overflow-hidden rounded-lg border border-line bg-muted ${heightClass}`}>
       <TransformWrapper
         minScale={0.5}
         maxScale={8}

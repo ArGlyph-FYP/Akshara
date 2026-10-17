@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/SignOutButton";
 import { requireRater } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 
 export default async function RateLayout({ children }: { children: React.ReactNode }) {
   const s = await requireRater();
@@ -9,9 +10,8 @@ export default async function RateLayout({ children }: { children: React.ReactNo
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-2">
           <Link href="/rate" className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">අ</span>
-            <span className="text-sm font-semibold">Akshara</span>
-            <span className="text-sm text-muted-foreground">rating</span>
+            <Logo />
+            <span className="text-sm text-muted-foreground">· rating</span>
           </Link>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             {s.user.role === "admin" && (

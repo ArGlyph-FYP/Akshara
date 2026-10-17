@@ -4,6 +4,7 @@ import { getStudyByPublicToken, listAssignments } from "@/lib/data";
 import { publicLinkOpen } from "@/lib/public";
 import { SCRIPT_LABEL } from "@/lib/types";
 import { JoinForm } from "./JoinForm";
+import { Logo } from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,10 +43,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto max-w-lg px-4 py-10">
-      <div className="mb-6 flex items-center gap-2">
-        <span className="grid size-8 place-items-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">අ</span>
-        <span className="text-sm font-semibold">Akshara</span>
-        <span className="text-sm text-muted-foreground">· University of Moratuwa</span>
+      <div className="mb-8">
+        <Logo sub="University of Moratuwa" />
       </div>
       {children}
     </main>

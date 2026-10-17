@@ -27,7 +27,7 @@ export function ScoreButtons({
             aria-checked={value === v}
             onClick={() => onChange(v)}
             className={`h-9 flex-1 rounded-md border text-sm font-medium transition ${
-              value === v ? "border-primary bg-primary text-white" : "border-line bg-white hover:border-primary/50"
+              value === v ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary/50"
             }`}
           >
             {v}

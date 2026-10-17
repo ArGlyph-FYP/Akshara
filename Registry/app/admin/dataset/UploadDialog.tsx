@@ -258,7 +258,7 @@ export function UploadDialog({ known }: { known: Known }) {
                         {r.state === "error" && <span className="text-destructive">{r.message}</span>}
                         {r.state === "ready" &&
                           (p ? (
-                            <span className="inline-flex items-center gap-1 text-[oklch(0.5_0.12_70)]">
+                            <span className="inline-flex items-center gap-1 text-foreground">
                               <TriangleAlert className="size-3.5" /> {p}
                             </span>
                           ) : (

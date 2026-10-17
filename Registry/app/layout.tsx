@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Noto_Sans_Sinhala, Noto_Sans_Tamil } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,9 +9,12 @@ const notoSinhala = Noto_Sans_Sinhala({ variable: "--font-noto-sinhala", subsets
 const notoTamil = Noto_Sans_Tamil({ variable: "--font-noto-tamil", subsets: ["tamil"] });
 
 export const metadata: Metadata = {
-  title: "Akshara Registry",
+  title: { default: "Akshara Registry", template: "%s · Akshara" },
   description: "Handwriting dataset, perception survey and rating for the Akshara study",
+  applicationName: "Akshara Registry",
 };
+
+export const viewport: Viewport = { themeColor: "#1f5fe0" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

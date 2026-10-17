@@ -37,7 +37,7 @@ export function applyFilters(rows: SampleRow[], f: Filters): SampleRow[] {
 const QC_TONE: Record<SampleRow["status"], string> = {
   uploaded: "bg-muted text-muted-foreground",
   qc_ok: "bg-success/10 text-success",
-  rejected: "bg-warning/15 text-[oklch(0.5_0.12_70)]",
+  rejected: "bg-foreground/10 text-foreground",
   excluded: "bg-destructive/10 text-destructive",
 };
 

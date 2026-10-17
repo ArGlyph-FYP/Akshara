@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clientAuth, startServerSession } from "@/lib/firebase/client";
+import { Logo } from "@/components/Logo";
 
 const EMAIL_KEY = "akshara:loginEmail";
 
@@ -105,8 +106,8 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
-      <p className="text-xs font-semibold tracking-widest text-primary">AKSHARA</p>
-      <h1 className="h1 mt-1">Registry sign in</h1>
+      <Logo sub="Registry" className="mb-6" />
+      <h1 className="h1">Sign in</h1>
       <p className="mt-1 text-sm text-muted-foreground">For the research team and invited raters.</p>
 
       {state === "linkSent" ? (
@@ -139,7 +140,7 @@ export default function LoginPage() {
                     setMode(m);
                     setError(null);
                   }}
-                  className={`rounded py-1 ${mode === m ? "bg-primary text-white" : "text-muted-foreground hover:text-ink"}`}
+                  className={`rounded py-1 ${mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-ink"}`}
                 >
                   {m === "password" ? "Password" : "Email link"}
                 </button>
@@ -180,7 +181,7 @@ export default function LoginPage() {
           </button>
         </form>
       )}
-      {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
     </main>
   );
 }

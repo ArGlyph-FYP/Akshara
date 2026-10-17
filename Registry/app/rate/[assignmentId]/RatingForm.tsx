@@ -102,7 +102,7 @@ export function RatingForm(props: {
           <span className="font-medium">
             Item {props.position} of {props.total}
           </span>
-          {props.isCalibration && <span className="pill bg-sky-50 text-sky-800">Calibration item</span>}
+          {props.isCalibration && <span className="pill bg-brand-soft text-primary">Calibration item</span>}
           <div className="ml-auto flex items-center gap-2">
             <select className="input w-56 py-1" value={tag} onChange={(e) => setTag(e.target.value)} title="Criterion for new regions">
               {criteria.map((c) => (
@@ -198,7 +198,7 @@ export function RatingForm(props: {
                 </select>
                 <button
                   type="button"
-                  className="text-xs text-red-700 underline"
+                  className="text-xs text-destructive underline"
                   onClick={(e) => {
                     e.stopPropagation();
                     setRegions((rs) => rs.filter((_, j) => j !== i));
@@ -223,7 +223,7 @@ export function RatingForm(props: {
             <label className="label">Comment (optional)</label>
             <textarea className="input" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-red-700">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <button type="button" className="btn btn-primary w-full py-2" onClick={submit} disabled={busy}>
             {busy ? "Saving…" : "Submit & next"}
           </button>
