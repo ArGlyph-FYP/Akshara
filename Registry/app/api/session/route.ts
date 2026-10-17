@@ -15,7 +15,16 @@ export async function POST(req: Request) {
   }
 
   // Only accounts an admin created (a users doc exists and is active) may sign in.
-  const user = (await adminDb().collection("users").doc(decoded.uid).get()).data() as UserDoc | undefined;
+  let user: UserDoc | undefined;
+  try {
+    user = (await adminDb().collection("users").doc(decoded.uid).get()).data() as UserDoc | undefined;
+  } catch (e) {
+    console.error("[akshara] session: Firestore read failed", e);
+    return NextResponse.json(
+      { error: "The server can't reach the database. An admin should open /api/health to check the deployment settings." },
+      { status: 500 },
+    );
+  }
   if (!user || !user.active) {
     return NextResponse.json(
       { error: "This account doesn't have access. Ask an Akshara admin to add you." },
@@ -24,7 +33,13 @@ export async function POST(req: Request) {
   }
 
   const expiresIn = SESSION_DAYS * 24 * 60 * 60 * 1000;
-  const cookie = await adminAuth().createSessionCookie(idToken, { expiresIn });
+  let cookie: string;
+  try {
+    cookie = await adminAuth().createSessionCookie(idToken, { expiresIn });
+  } catch (e) {
+    console.error("[akshara] session: createSessionCookie failed", e);
+    return NextResponse.json({ error: "Could not start a session. Please sign in again." }, { status: 500 });
+  }
   const res = NextResponse.json({ ok: true, role: user.role });
   res.cookies.set(SESSION_COOKIE, cookie, {
     httpOnly: true,

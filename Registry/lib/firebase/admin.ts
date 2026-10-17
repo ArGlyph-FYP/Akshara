@@ -3,16 +3,22 @@ import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { readServiceAccount } from "./credentials";
+
+export { readServiceAccount };
 
 function app(): App {
   const existing = getApps()[0];
   if (existing) return existing;
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const { status, account } = readServiceAccount();
+  if (status !== "ok" && status !== "emulator" && process.env.NODE_ENV === "production") {
+    console.error(`[akshara] FIREBASE_SERVICE_ACCOUNT is ${status}; Firestore/Storage calls will fail.`);
+  }
   return initializeApp({
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    // On App Hosting, Application Default Credentials are used; locally the emulators need none.
-    ...(serviceAccount ? { credential: cert(JSON.parse(serviceAccount)) } : {}),
+    // Without a service account, Application Default Credentials are tried (works on Google Cloud, not Vercel).
+    ...(account ? { credential: cert(account) } : {}),
   });
 }
 
