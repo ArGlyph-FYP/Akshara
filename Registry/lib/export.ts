@@ -241,7 +241,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
 
   if (opts.includeSurveys) {
     files["perception_responses.csv"] = toCsv(
-      ["rating_id", "study_id", "study_title", "sample_id", "writer_id", "script", "rater", "rater_source", "rater_first_language", "rater_age_group", "kind", "score", "liked_text", "disliked_text", "duration_ms", "submitted_at"],
+      ["rating_id", "study_id", "study_title", "sample_id", "writer_id", "script", "rater", "rater_source", "rater_first_language", "rater_age_group", "kind", "score", "liked_text", "disliked_text", "n_good_marks", "n_weak_marks", "duration_ms", "submitted_at"],
       perception.map((r) => ({
         rater_source: data.raterInfo?.[r.raterId]?.source ?? "",
         rater_first_language: data.raterInfo?.[r.raterId]?.firstLanguage ?? "",
@@ -257,9 +257,47 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
         score: r.overall,
         liked_text: r.likedText,
         disliked_text: r.dislikedText,
+        n_good_marks: r.regions.filter((g) => g.tone === "good").length,
+        n_weak_marks: r.regions.filter((g) => g.tone === "weak").length,
         duration_ms: r.durationMs,
         submitted_at: iso(r.submittedAt),
       })),
+    );
+
+    // Boxes readers drew in perception studies, COCO-style in pixels (category 1 = looks good, 2 = could be better).
+    const marked = perception.filter((r) => r.regions.length);
+    const markImages = [...new Set(marked.map((r) => r.sampleId))].map((id, i) => ({ id, imageId: i + 1, s: sampleById.get(id)! }));
+    const markImageId = new Map(markImages.map((m) => [m.id, m.imageId]));
+    let markId = 1;
+    files["perception_marks.json"] = JSON.stringify(
+      {
+        info: { description: "Akshara perception-survey marks", bbox_format: "xywh pixels" },
+        images: markImages.map(({ imageId, s }) => ({ id: imageId, sample_id: s.id, file_name: `images/${s.id}.${ext(s)}`, width: s.width, height: s.height })),
+        categories: [
+          { id: 1, name: "good" },
+          { id: 2, name: "weak" },
+        ],
+        annotations: marked.flatMap((r) => {
+          const s = sampleById.get(r.sampleId)!;
+          return r.regions.map((g) => {
+            const box = [g.x * s.width, g.y * s.height, g.w * s.width, g.h * s.height].map((v) => Math.round(v * 10) / 10);
+            return {
+              id: markId++,
+              image_id: markImageId.get(s.id),
+              category_id: g.tone === "good" ? 1 : 2,
+              bbox: box,
+              area: Math.round(box[2] * box[3]),
+              iscrowd: 0,
+              rating_id: r.id,
+              study_id: r.studyId,
+              rater: alias(r.raterId),
+              note: g.note,
+            };
+          });
+        }),
+      },
+      null,
+      2,
     );
   }
 

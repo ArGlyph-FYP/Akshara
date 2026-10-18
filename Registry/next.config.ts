@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
     middlewareClientMaxBodySize: "30mb",
   },
   serverExternalPackages: ["firebase-admin", "archiver"],
+  // Old admin routes: Survey became the Perception and Main study pages; reader accounts were replaced by study links.
+  async redirects() {
+    return [
+      { source: "/admin/survey/:path*", destination: "/admin/perception", permanent: false },
+      { source: "/admin/raters", destination: "/admin/perception", permanent: false },
+    ];
+  },
   // Firestore (via google-gax) loads .proto/.json files at runtime; make sure they are shipped in every
   // serverless function. Turbopack builds in Next 15 left them out, crashing every server route on Vercel.
   outputFileTracingIncludes: {

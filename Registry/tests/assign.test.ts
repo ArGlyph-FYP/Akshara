@@ -171,4 +171,29 @@ describe("planForNewReader", () => {
     expect(out.map((a) => a.sampleId).sort()).toEqual(["s1", "s2"]);
     expect(Math.min(...out.map((a) => a.position))).toBe(1);
   });
+
+  it("puts anchors first for every reader and adds blinded repeats later in the queue", async () => {
+    const { planForNewReader } = await import("@/lib/assign");
+    const out = planForNewReader({ samples: samples(22, 2), readerId: "p1", existing: [], perReader: null, seed: "z", repeatFraction: 0.1 });
+    expect(out.slice(0, 2).map((a) => [a.sampleId, a.kind])).toEqual(
+      expect.arrayContaining([
+        ["s0", "anchor"],
+        ["s1", "anchor"],
+      ]),
+    );
+    expect(out.filter((a) => a.kind === "normal")).toHaveLength(20);
+    const repeats = out.filter((a) => a.kind === "repeat");
+    expect(repeats).toHaveLength(2);
+    for (const r of repeats) {
+      const orig = out.find((a) => a.sampleId === r.sampleId && a.kind === "normal")!;
+      expect(r.position - orig.position).toBeGreaterThan(5);
+    }
+    expect(out.map((a) => a.position)).toEqual([...Array(24).keys()]);
+  });
+
+  it("does not count anchors against the per-reader cap", async () => {
+    const { planForNewReader } = await import("@/lib/assign");
+    const out = planForNewReader({ samples: samples(10, 1), readerId: "p1", existing: [], perReader: 3, seed: "w" });
+    expect(out.map((a) => a.kind)).toEqual(["anchor", "normal", "normal", "normal"]);
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, LogOut, Menu, MessagesSquare, Star, Users } from "lucide-react";
+import { ClipboardCheck, Database, LogOut, Menu, MessagesSquare, Star } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -12,18 +12,26 @@ import { clientAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import type { Script } from "@/lib/types";
 import { Logo } from "@/components/Logo";
+import { TeamSheet, type TeamMember } from "./TeamSheet";
 
 const NAV = [
   { href: "/admin/dataset", label: "Dataset", icon: Database, key: "dataset" },
-  { href: "/admin/survey", label: "Survey", icon: MessagesSquare, key: "survey" },
-  { href: "/admin/raters", label: "Raters", icon: Users, key: "raters" },
+  { href: "/admin/perception", label: "Perception study", icon: MessagesSquare, key: "perception" },
+  { href: "/admin/main", label: "Main study", icon: ClipboardCheck, key: "main" },
 ] as const;
+
+/** null = not started yet. */
+export type StudyBadge = "open" | "full" | "closed" | null;
 
 export interface SidebarProps {
   script: Script;
-  counts: Record<(typeof NAV)[number]["key"], number>;
+  samples: number;
+  studies: { perception: StudyBadge; main: StudyBadge };
+  team: TeamMember[];
   user: { name: string; email: string; canRate: boolean };
 }
+
+const BADGE: Record<Exclude<StudyBadge, null>, string> = { open: "Live", full: "Live", closed: "Closed" };
 
 async function logout() {
   await fetch("/api/session", { method: "DELETE" });
@@ -59,7 +67,7 @@ function ScriptSwitch({ script }: { script: Script }) {
   );
 }
 
-function NavBody({ script, counts, user, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
+function NavBody({ script, samples, studies, team, user, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 p-4">
@@ -75,6 +83,7 @@ function NavBody({ script, counts, user, onNavigate }: SidebarProps & { onNaviga
               key={href}
               href={href}
               onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition",
                 active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -82,12 +91,26 @@ function NavBody({ script, counts, user, onNavigate }: SidebarProps & { onNaviga
             >
               <Icon className="size-4" />
               {label}
-              <span className="ml-auto text-xs tabular-nums opacity-70">{counts[key]}</span>
+              {key === "dataset" ? (
+                <span className="ml-auto text-xs tabular-nums opacity-70">{samples}</span>
+              ) : studies[key] ? (
+                <span
+                  className={cn(
+                    "ml-auto rounded-full px-1.5 py-px text-[10px] font-medium",
+                    studies[key] === "closed" ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary",
+                  )}
+                >
+                  {BADGE[studies[key]]}
+                </span>
+              ) : (
+                <span className="ml-auto text-[10px] opacity-60">Not started</span>
+              )}
             </Link>
           );
         })}
       </nav>
       <div className="mt-auto space-y-2">
+        <TeamSheet team={team} />
         {user.canRate && (
           <Button variant="outline" size="sm" className="w-full justify-start" asChild>
             <Link href="/rate" onClick={onNavigate}>

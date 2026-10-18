@@ -109,7 +109,7 @@ export default function LoginPage() {
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4">
       <Logo sub="Registry" className="mb-6" />
       <h1 className="h1">Sign in</h1>
-      <p className="mt-1 text-sm text-muted-foreground">For the research team and invited raters.</p>
+      <p className="mt-1 text-sm text-muted-foreground">For the research team. Readers and raters join with the link you send them.</p>
 
       {state === "linkSent" ? (
         <div className="card mt-6 text-sm">

@@ -146,7 +146,7 @@ async function main() {
       mode: "manual",
     },
     {
-      study: { script: "si", type: "rubric", title: "Sinhala main rating (demo)", instructions: "", sampleIds: siMain.map((s) => s.id), open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, createdAt: Date.now() + 1 },
+      study: { script: "si", type: "rubric", title: "Sinhala main study (demo)", instructions: "", sampleIds: siMain.map((s) => s.id), open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, publicToken: "demo-si-main", publicOpen: true, perReader: null, repeatPct: 10, createdAt: Date.now() + 1 },
       samples: siMain,
       mode: "random",
     },

@@ -1,5 +1,6 @@
-import { CheckCircle2, MessageSquareText, Ruler } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, MessageSquareText } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { requireRater } from "@/lib/auth";
 import { getStudy, listAssignments } from "@/lib/data";
@@ -27,7 +28,7 @@ export default async function RateHome() {
 
       {studies.length === 0 && (
         <div className="rounded-xl border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Nothing to rate yet. The research team will assign samples to you.
+          Nothing to rate here yet. Open the study link the research team sent you to begin.
         </div>
       )}
 
@@ -35,7 +36,7 @@ export default async function RateHome() {
         const mine = (byStudy.get(st.id) ?? []).sort((a, b) => a.position - b.position);
         const done = mine.filter((a) => a.status === "done").length;
         const next = mine.find((a) => a.status === "pending");
-        const Icon = st.type === "perception" ? MessageSquareText : Ruler;
+        const Icon = st.type === "perception" ? MessageSquareText : ClipboardCheck;
         return (
           <section key={st.id} className="space-y-4 rounded-xl border bg-card p-5">
             <div className="flex flex-wrap items-start gap-3">
@@ -45,15 +46,15 @@ export default async function RateHome() {
               <div className="min-w-0 flex-1">
                 <h2 className="font-semibold">{st.title}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {SCRIPT_LABEL[st.script]} · {st.type === "perception" ? "score + your reasons" : "rubric rating"} · {done} of {mine.length} done
+                  {SCRIPT_LABEL[st.script]} · {st.type === "perception" ? "score and your reasons" : "score, legibility and qualities"} · {done} of {mine.length} done
                 </p>
               </div>
               {!st.open ? (
                 <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Closed</span>
               ) : next ? (
-                <Link href={`/rate/${next.id}`} className="btn btn-primary">
-                  {done === 0 ? "Start" : "Continue"}
-                </Link>
+                <Button asChild>
+                  <Link href={`/rate/${next.id}`}>{done === 0 ? "Start" : "Continue"}</Link>
+                </Button>
               ) : (
                 <span className="inline-flex items-center gap-1 text-sm text-success">
                   <CheckCircle2 className="size-4" /> All done, thank you!

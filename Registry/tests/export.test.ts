@@ -70,7 +70,18 @@ const data: ExportData = {
     rating("r1", "s1"),
     rating("r2", "s2"),
     rating("r3", "s3", { script: "ta" }),
-    rating("q1", "p1", { studyId: "st_pilot", studyType: "perception", legibility: null, criterionScores: {}, regions: [], likedText: 'neat, "even"', overall: 6 }),
+    rating("q1", "p1", {
+      studyId: "st_pilot",
+      studyType: "perception",
+      legibility: null,
+      criterionScores: {},
+      regions: [
+        { criterionId: "", tone: "good", x: 0.1, y: 0.1, w: 0.2, h: 0.1, note: "round letters" },
+        { criterionId: "", tone: "weak", x: 0.5, y: 0.5, w: 0.1, h: 0.1, note: "" },
+      ],
+      likedText: 'neat, "even"',
+      overall: 6,
+    }),
   ],
   criteria: [
     { id: "c1", script: "si", rubricVersion: 1, key: "baseline", labelEn: "Baseline", labelLocal: "", description: "", level: "line", scaleMin: 1, scaleMax: 5, active: true, order: 1 },
@@ -131,6 +142,18 @@ describe("buildExport", () => {
     expect(csv).toContain("public,true,25-34");
     expect(b.files["ratings.csv"]).not.toContain("q1");
     expect(b.counts.perception_responses).toBe(1);
+  });
+
+  it("exports perception marks separately from rubric regions", () => {
+    const b = buildExport(data, { ...opts, phases: ["pilot"], qcOnly: false });
+    expect(b.files["perception_responses.csv"]).toContain("1,1,");
+    const coco = JSON.parse(b.files["perception_marks.json"]);
+    expect(coco.annotations.map((a: { category_id: number }) => a.category_id)).toEqual([1, 2]);
+    expect(coco.annotations[0].bbox).toEqual([100, 200, 200, 200]);
+    expect(coco.annotations[0].note).toBe("round letters");
+    expect(coco.annotations[0].rater).toBe("R01");
+    expect(JSON.parse(b.files["regions.json"]).annotations).toHaveLength(0);
+    expect(buildExport(data, { ...opts, includeSurveys: false }).files["perception_marks.json"]).toBeUndefined();
   });
 
   it("lists studies", () => {

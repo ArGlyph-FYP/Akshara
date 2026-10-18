@@ -1,10 +1,20 @@
 "use client";
 
+import { Anchor, Loader2, SquareDashedMousePointer, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ImageAnnotator, colorFor, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import type { Region, Scale } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { submitRating } from "../actions";
 
 interface C {
@@ -17,6 +27,7 @@ interface C {
   max: number;
 }
 
+/** Main study (Phase C): overall, legibility, every rubric criterion, and optional weak-region boxes. */
 export function RatingForm(props: {
   assignmentId: string;
   studyId: string;
@@ -24,6 +35,8 @@ export function RatingForm(props: {
   isCalibration: boolean;
   position: number;
   total: number;
+  title: string;
+  instructions: string;
   overallScale: Scale;
   legibilityScale: Scale;
   criteria: C[];
@@ -50,10 +63,11 @@ export function RatingForm(props: {
     legibility === null && "legibility",
     ...criteria.filter((c) => scores[c.id] === undefined).map((c) => c.labelEn),
   ].filter(Boolean) as string[];
+  const next = () => router.push(`/rate/next?study=${props.studyId}`);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input, textarea, select")) return;
+      if ((e.target as HTMLElement).closest("input, textarea, select, [role=combobox]")) return;
       if (e.key === "d") setDrawMode((v) => !v);
       if (e.key === "Escape") setDrawMode(false);
       if ((e.key === "Delete" || e.key === "Backspace") && selected !== null) {
@@ -66,7 +80,7 @@ export function RatingForm(props: {
   }, [selected]);
 
   function addRegion(b: Box) {
-    if (!tag) return setError("Add criteria to the rubric before marking regions");
+    if (!tag) return;
     setRegions((r) => [...r, { ...b, criterionId: tag, note: "" }]);
     setSelected(regions.length);
   }
@@ -92,159 +106,167 @@ export function RatingForm(props: {
       setBusy(false);
       return setFeedback(res.anchor);
     }
-    router.push(`/rate/next?study=${props.studyId}`);
+    next();
   }
 
   return (
-    <div className="mx-auto grid max-w-[1600px] gap-4 px-4 py-3 lg:grid-cols-[1fr_400px]">
+    <main className="mx-auto grid max-w-[1600px] gap-4 px-4 py-4 lg:grid-cols-[1fr_400px]">
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="font-medium">
-            Item {props.position} of {props.total}
+        <div className="flex items-center gap-3 text-sm">
+          <span className="truncate font-medium">{props.title}</span>
+          {props.isCalibration && (
+            <Badge variant="secondary" className="bg-brand-soft text-primary">
+              <Anchor /> Calibration sample
+            </Badge>
+          )}
+          <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
+            {props.position} / {props.total}
           </span>
-          {props.isCalibration && <span className="pill bg-brand-soft text-primary">Calibration item</span>}
-          <div className="ml-auto flex items-center gap-2">
-            <select className="input w-56 py-1" value={tag} onChange={(e) => setTag(e.target.value)} title="Criterion for new regions">
-              {criteria.map((c) => (
-                <option key={c.id} value={c.id}>
-                  Tag: {c.labelEn}
-                </option>
+        </div>
+        <Progress value={(100 * (props.position - 1)) / props.total} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={tag} onValueChange={setTag}>
+            <SelectTrigger size="sm" className="w-56" aria-label="Criterion for new boxes">
+              <SelectValue placeholder="No criteria" />
+            </SelectTrigger>
+            <SelectContent>
+              {criteria.map((c, i) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="size-2.5 rounded-full" style={{ background: colorFor(i) }} /> {c.labelEn}
+                </SelectItem>
               ))}
-            </select>
-            <button
-              type="button"
-              className={`btn ${drawMode ? "btn-primary" : ""}`}
-              onClick={() => setDrawMode((v) => !v)}
-              disabled={criteria.length === 0}
-              title="Shortcut: D"
-            >
-              {drawMode ? "Drawing: drag on the scan" : "Mark weak region"}
-            </button>
-          </div>
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant={drawMode ? "default" : "outline"} onClick={() => setDrawMode((v) => !v)} disabled={!criteria.length} title="Shortcut: D">
+            <SquareDashedMousePointer /> {drawMode ? "Drawing… tap to stop" : "Mark weak region"}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {drawMode ? "Drag on the page to box the weak part." : "Optional. Zoom with the buttons or by pinching."}
+          </span>
         </div>
         <ImageAnnotator
           src={props.imageSrc}
+          heightClass="h-[60vh] lg:h-[calc(100vh-11rem)]"
           drawMode={drawMode}
           onDraw={addRegion}
           selected={selected}
           onSelect={setSelected}
-          boxes={regions.map((r) => ({ ...r, color: colorFor(cIndex[r.criterionId] ?? 0), label: label(r.criterionId) }))}
+          boxes={regions.map((r) => ({ ...r, color: colorFor(cIndex[r.criterionId] ?? 0), label: r.note || label(r.criterionId) }))}
         />
-        <p className="text-xs text-muted-foreground">
-          Scroll or pinch to zoom, drag to move. Press <kbd>D</kbd> to toggle region drawing; select a box and press
-          Delete to remove it.
-        </p>
       </div>
 
-      <aside className="space-y-4 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-1">
-        <section className="card space-y-3">
+      <aside className="space-y-4 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-1 lg:pt-9">
+        {props.instructions && props.position === 1 && (
+          <p className="rounded-xl border bg-muted/60 p-3 text-sm whitespace-pre-line">{props.instructions}</p>
+        )}
+        <section className="space-y-4 rounded-xl border bg-card p-4">
           <div>
-            <h3 className="text-sm font-semibold">Overall aesthetic quality</h3>
-            <p className="text-xs text-muted-foreground">How good does this handwriting look as a whole?</p>
-            <ScoreButtons scale={props.overallScale} value={overall} onChange={setOverall} lowLabel="poor" highLabel="excellent" />
+            <h2 className="text-sm font-semibold">Overall, how good does it look?</h2>
+            <p className="text-xs text-muted-foreground">Judge only how it looks, not spelling or content.</p>
+            <ScoreButtons scale={props.overallScale} value={overall} onChange={setOverall} lowLabel="very poor" highLabel="excellent" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold">Legibility</h3>
-            <p className="text-xs text-muted-foreground">How easy is it to read? Rate this separately from how it looks.</p>
+            <h2 className="text-sm font-semibold">How easy is it to read?</h2>
+            <p className="text-xs text-muted-foreground">Rate this separately from how it looks.</p>
             <ScoreButtons scale={props.legibilityScale} value={legibility} onChange={setLegibility} lowLabel="hard" highLabel="easy" />
           </div>
         </section>
 
         {criteria.length > 0 && (
-          <section className="card space-y-3">
-            <h3 className="text-sm font-semibold">Criteria</h3>
+          <section className="space-y-4 rounded-xl border bg-card p-4">
             {criteria.map((c, i) => (
               <div key={c.id}>
                 <div className="flex items-baseline gap-1.5 text-sm">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: colorFor(i) }} />
-                  <span className="font-medium">{c.labelEn}</span>
+                  <span className="inline-block size-2.5 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
+                  <span className="font-semibold">{c.labelEn}</span>
                   {c.labelLocal && <span className="text-muted-foreground">{c.labelLocal}</span>}
-                  <span className="ml-auto text-[10px] tracking-wide text-muted-foreground uppercase">{c.level}</span>
                 </div>
                 {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
-                <ScoreButtons
-                  scale={{ min: c.min, max: c.max }}
-                  value={scores[c.id] ?? null}
-                  onChange={(v) => setScores((s) => ({ ...s, [c.id]: v }))}
+                <ScoreButtons scale={{ min: c.min, max: c.max }} value={scores[c.id] ?? null} onChange={(v) => setScores((s) => ({ ...s, [c.id]: v }))} />
+              </div>
+            ))}
+          </section>
+        )}
+
+        {regions.length > 0 && (
+          <section className="space-y-2 rounded-xl border bg-card p-4">
+            <Label>Weak regions ({regions.length})</Label>
+            {regions.map((r, i) => (
+              <div key={i} onClick={() => setSelected(i)} className={cn("space-y-1.5 rounded-lg border p-2", selected === i && "border-primary")}>
+                <div className="flex items-center gap-2">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ background: colorFor(cIndex[r.criterionId] ?? 0) }} />
+                  <Select value={r.criterionId} onValueChange={(v) => setRegions((rs) => rs.map((x, j) => (j === i ? { ...x, criterionId: v } : x)))}>
+                    <SelectTrigger size="sm" className="min-w-0 flex-1" aria-label="Criterion">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {criteria.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.labelEn}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Remove box"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRegions((rs) => rs.filter((_, j) => j !== i));
+                      setSelected(null);
+                    }}
+                  >
+                    <X />
+                  </Button>
+                </div>
+                <Input
+                  className="h-8 text-sm"
+                  placeholder="Note (optional)"
+                  value={r.note}
+                  onChange={(e) => setRegions((rs) => rs.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)))}
                 />
               </div>
             ))}
           </section>
         )}
 
-        <section className="card space-y-2">
-          <h3 className="text-sm font-semibold">Weak regions ({regions.length})</h3>
-          {regions.length === 0 && (
-            <p className="text-xs text-muted-foreground">Optional. Use &quot;Mark weak region&quot; to box places that lower the score.</p>
-          )}
-          {regions.map((r, i) => (
-            <div
-              key={i}
-              className={`space-y-1 rounded-md border p-2 ${selected === i ? "border-primary" : "border-line"}`}
-              onClick={() => setSelected(i)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorFor(cIndex[r.criterionId] ?? 0) }} />
-                <select
-                  className="input py-0.5"
-                  value={r.criterionId}
-                  onChange={(e) => setRegions((rs) => rs.map((x, j) => (j === i ? { ...x, criterionId: e.target.value } : x)))}
-                >
-                  {criteria.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.labelEn}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="text-xs text-destructive underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRegions((rs) => rs.filter((_, j) => j !== i));
-                    setSelected(null);
-                  }}
-                >
-                  remove
-                </button>
-              </div>
-              <input
-                className="input py-0.5 text-xs"
-                placeholder="Note (optional)"
-                value={r.note}
-                onChange={(e) => setRegions((rs) => rs.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)))}
-              />
-            </div>
-          ))}
-        </section>
-
-        <section className="card space-y-3">
+        <section className="space-y-3 rounded-xl border bg-card p-4">
           <div>
-            <label className="label">Comment (optional)</label>
-            <textarea className="input" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
+            <Label htmlFor="rate-comment" className="mb-1.5">
+              Comment <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea id="rate-comment" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <button type="button" className="btn btn-primary w-full py-2" onClick={submit} disabled={busy}>
-            {busy ? "Saving…" : "Submit & next"}
-          </button>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <Button className="h-10 w-full" onClick={submit} disabled={busy}>
+            {busy && <Loader2 className="animate-spin" />}
+            {props.position === props.total ? "Finish" : "Next"}
+          </Button>
         </section>
       </aside>
 
-      {feedback && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="card max-w-md space-y-3">
-            <h3 className="h2">Calibration reference</h3>
-            <p className="text-sm">
-              You gave overall <b>{overall}</b> and legibility <b>{legibility}</b>. The reference is overall{" "}
-              <b>{feedback.overall ?? "–"}</b> and legibility <b>{feedback.legibility ?? "–"}</b>.
-            </p>
-            {feedback.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
-            <button className="btn btn-primary w-full" onClick={() => router.push(`/rate/next?study=${props.studyId}`)}>
+      <Dialog open={!!feedback} onOpenChange={(o) => !o && next()}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Calibration reference</DialogTitle>
+            <DialogDescription>
+              You gave overall <b>{overall}</b> and legibility <b>{legibility}</b>. The research team&apos;s reference is overall{" "}
+              <b>{feedback?.overall ?? "–"}</b> and legibility <b>{feedback?.legibility ?? "–"}</b>.
+            </DialogDescription>
+          </DialogHeader>
+          {feedback?.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
+          <DialogFooter>
+            <Button className="w-full" onClick={next}>
               Continue
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </main>
   );
 }

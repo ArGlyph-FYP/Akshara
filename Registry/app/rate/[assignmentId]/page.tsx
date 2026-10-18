@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { requireRater } from "@/lib/auth";
 import { col, criteriaFor, getStudy, raterQueue } from "@/lib/data";
 import type { Assignment } from "@/lib/types";
@@ -18,9 +19,10 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
     return (
       <main className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-lg font-semibold">This study is closed</h1>
-        <Link href="/rate" className="btn mt-4">
-          Back
-        </Link>
+        <p className="mt-2 text-sm text-muted-foreground">Thank you for your help. The research team has stopped collecting responses.</p>
+        <Button variant="outline" className="mt-4" asChild>
+          <Link href="/rate">Back</Link>
+        </Button>
       </main>
     );
   }
@@ -43,6 +45,8 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
       key={a.id}
       {...common}
       isCalibration={a.kind === "anchor"}
+      title={study.title}
+      instructions={study.instructions}
       overallScale={study.overallScale}
       legibilityScale={study.legibilityScale ?? { min: 1, max: 5 }}
       criteria={criteria.map((c) => ({

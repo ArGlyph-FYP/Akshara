@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/SignOutButton";
+import { Button } from "@/components/ui/button";
 import { requireRater } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 
@@ -15,9 +16,9 @@ export default async function RateLayout({ children }: { children: React.ReactNo
           </Link>
           <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
             {s.user.role === "admin" && (
-              <Link href="/admin" className="btn btn-sm">
-                Admin
-              </Link>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/admin">Admin</Link>
+              </Button>
             )}
             <span className="hidden md:inline">{s.user.displayName}</span>
             {/* Public-link readers have no password: signing out would lose their progress link. */}

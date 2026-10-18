@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getStudyByPublicToken, listAssignments } from "@/lib/data";
+import { getStudyByPublicToken, listAssignments, listSamples } from "@/lib/data";
 import { publicLinkOpen } from "@/lib/public";
 import { SCRIPT_LABEL } from "@/lib/types";
 import { JoinForm } from "./JoinForm";
@@ -24,7 +24,16 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
     const mine = await listAssignments({ studyId: study.id, raterId: session.uid });
     if (mine.length) redirect(`/rate/next?study=${study.id}`);
   }
-  const count = study.perReader ? Math.min(study.perReader, study.sampleIds.length) : study.sampleIds.length;
+  // What one new reader will get: anchors (main study) + their share of the samples + blinded repeats.
+  const inStudy = new Set(study.sampleIds);
+  const usable = (await listSamples({ script: study.script })).filter(
+    (s) => inStudy.has(s.id) && s.imagePath && s.status !== "excluded" && s.status !== "rejected",
+  );
+  const anchors = study.type === "rubric" ? usable.filter((s) => s.isAnchor).length : 0;
+  const others = usable.length - anchors;
+  const share = study.perReader ? Math.min(study.perReader, others) : others;
+  const repeats = study.type === "rubric" ? Math.round(share * Math.min(50, study.repeatPct ?? 0) / 100) : 0;
+  const count = anchors + share + repeats;
   return (
     <Shell>
       <JoinForm
@@ -32,6 +41,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
         title={study.title}
         language={SCRIPT_LABEL[study.script]}
         script={study.script}
+        type={study.type}
         instructions={study.instructions}
         count={count}
         signedInAs={session && !session.user.public ? session.user.displayName || session.user.email : null}

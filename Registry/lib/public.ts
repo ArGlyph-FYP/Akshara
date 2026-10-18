@@ -17,8 +17,15 @@ export async function assignPublicReader(study: Study, uid: string): Promise<num
   const wanted = new Set(study.sampleIds);
   const samples = (await listSamples({ script: study.script }))
     .filter((s) => wanted.has(s.id) && s.imagePath && s.status !== "excluded" && s.status !== "rejected")
-    .map((s) => ({ id: s.id, isAnchor: false }));
-  const planned = planForNewReader({ samples, readerId: uid, existing, perReader: study.perReader ?? null, seed: `${study.id}:${uid}` });
+    .map((s) => ({ id: s.id, isAnchor: study.type === "rubric" && s.isAnchor }));
+  const planned = planForNewReader({
+    samples,
+    readerId: uid,
+    existing,
+    perReader: study.perReader ?? null,
+    seed: `${study.id}:${uid}`,
+    repeatFraction: study.type === "rubric" ? (study.repeatPct ?? 0) / 100 : 0,
+  });
   const batch = db().batch();
   const now = Date.now();
   for (const a of planned) {

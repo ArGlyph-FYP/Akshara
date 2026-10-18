@@ -21,6 +21,8 @@ export interface RatingInput {
 }
 
 const inScale = (v: unknown, s: Scale) => Number.isInteger(v) && (v as number) >= s.min && (v as number) <= s.max;
+const clamp = (v: number) => Math.min(1, Math.max(0, Number(v) || 0));
+const clampBox = (g: Region) => ({ x: clamp(g.x), y: clamp(g.y), w: clamp(g.w), h: clamp(g.h) });
 
 /** Saves one rating (either study type) and marks the queue item done. */
 export async function submitRating(input: RatingInput) {
@@ -54,7 +56,11 @@ export async function submitRating(input: RatingInput) {
       const likedText = String(input.likedText ?? "").trim().slice(0, 2000);
       const dislikedText = String(input.dislikedText ?? "").trim().slice(0, 2000);
       if (!likedText && !dislikedText) throw new Error("Please write at least one reason");
-      rating = { ...base, legibility: null, criterionScores: {}, regions: [], likedText, dislikedText, rubricVersion: null };
+      const regions: Region[] = (input.regions ?? []).slice(0, 50).map((g) => {
+        if (g.tone !== "good" && g.tone !== "weak") throw new Error("Every marked part needs to be good or could be better");
+        return { criterionId: "", tone: g.tone, ...clampBox(g), note: String(g.note ?? "").slice(0, 300) };
+      });
+      rating = { ...base, legibility: null, criterionScores: {}, regions, likedText, dislikedText, rubricVersion: null };
     } else {
       if (!inScale(input.legibility, study.legibilityScale ?? { min: 1, max: 5 })) throw new Error("Choose a legibility score");
       const criteria = await criteriaFor(study.script, study.rubricVersion ?? 1);
@@ -65,10 +71,9 @@ export async function submitRating(input: RatingInput) {
         scores[c.id] = v as number;
       }
       const ids = new Set(criteria.map((c) => c.id));
-      const clamp = (v: number) => Math.min(1, Math.max(0, Number(v) || 0));
       const regions: Region[] = (input.regions ?? []).slice(0, 100).map((g) => {
         if (!ids.has(g.criterionId)) throw new Error("Every region needs a criterion");
-        return { criterionId: g.criterionId, x: clamp(g.x), y: clamp(g.y), w: clamp(g.w), h: clamp(g.h), note: String(g.note ?? "").slice(0, 300) };
+        return { criterionId: g.criterionId, ...clampBox(g), note: String(g.note ?? "").slice(0, 300) };
       });
       rating = {
         ...base,

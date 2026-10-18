@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clientAuth } from "@/lib/firebase/client";
-import type { Script } from "@/lib/types";
+import type { Script, StudyType } from "@/lib/types";
 import { joinAsSelf } from "./actions";
 
 const AGE_GROUPS = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
@@ -22,6 +22,7 @@ export function JoinForm(props: {
   title: string;
   language: string;
   script: Script;
+  type: StudyType;
   instructions: string;
   count: number;
   signedInAs: string | null;
@@ -110,9 +111,19 @@ export function JoinForm(props: {
         <p className="text-sm font-medium text-primary">{GREETING[props.script]}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{props.title}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          A research study on how {props.language} handwriting looks. You&apos;ll see {props.count} handwriting
-          samples, one at a time. For each, give a score and say in your own words what makes it look good or bad.
-          It takes about {Math.max(5, Math.round(props.count * 1.2))} minutes.
+          {props.type === "perception" ? (
+            <>
+              A research study on how {props.language} handwriting looks. You&apos;ll see {props.count} handwriting
+              samples, one at a time. For each, give a score, say in your own words what makes it look good or bad,
+              and if you like, draw boxes around those parts of the page.
+            </>
+          ) : (
+            <>
+              You&apos;ll rate {props.count} {props.language} handwriting samples, one at a time: how good each looks
+              overall, how easy it is to read, and a few listed qualities. You can also box the weak parts.
+            </>
+          )}{" "}
+          It takes about {Math.max(5, Math.round(props.count * (props.type === "perception" ? 1.2 : 2.5)))} minutes.
         </p>
         {props.instructions && <p className="mt-3 rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-line">{props.instructions}</p>}
       </div>

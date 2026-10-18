@@ -4,9 +4,8 @@ This web app manages data collection for the Akshara study in both branches, Sin
 
 | Who | What they do |
 |---|---|
-| **Admins** (research team) | Three sidebar tabs: **Dataset** (upload, check, browse with filters, writers & consent, export), **Survey** (perception and rubric studies built from dataset samples, assigned to raters manually or at random; rubric criteria) and **Raters** (create logins, copy credentials, reset passwords) |
-| **Survey readers (public link)** | Open a study's public link, enter name, optional contact, age group and first-language answer, confirm 18+ and consent, then rate the samples the system hands them. No login; progress is kept on that device |
-| **Raters (accounts)** | Sign in with the email + password an admin gave them and work through each assigned study: perception (score + reasons) or rubric (overall, legibility, criteria, weak-region boxes). They never see participant codes |
+| **Admins** (research team) | Three sidebar tabs: **Dataset** (upload, check, browse with filters, writers & consent, export), **Perception study** and **Main study** (one of each per script: pick samples, start, share the link, follow readers and responses; the main study also holds the rubric criteria). **Team access** in the sidebar adds or removes team logins |
+| **Readers and raters (study link)** | Open a study's link, enter name, optional contact, age group and first-language answer, confirm 18+ and consent, then rate the samples the system hands them. No account; progress is kept on that device. Perception: score, reasons and optional good / could-be-better boxes. Main: overall, legibility, every criterion and optional weak-region boxes. They never see participant codes |
 
 Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (email + password; email link also works).
 
@@ -15,7 +14,7 @@ Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storag
 - Browsers only use Firebase Auth. After sign-in, the ID token is exchanged for an httpOnly `__session` cookie (`app/api/session`).
 - **All** Firestore and Storage access happens on the server with the Admin SDK, after `lib/auth.ts` checks the session and the `users/{uid}` role. `firestore.rules` and `storage.rules` deny all client access.
 - Scans are served only through `/api/image/[sampleId]`. That route allows admins and raters who have the sample in one of their studies; in production it redirects to a 15-minute signed URL.
-- Only people an admin has added (Team & raters page) can sign in as staff.
+- Only people an admin has added (sidebar → Team access) can sign in with a password. Readers sign in anonymously through a study link and can only reach their own queue.
 
 ## Privacy, following the consent form
 
@@ -35,7 +34,7 @@ npm run seed:demo               # terminal 2: demo users, criteria, fake scans, 
 npm run dev                     # http://localhost:3000
 ```
 
-Sign in on `/login` as `admin@akshara.test` (or `rater1.si@akshara.test`) with the password `Demo#2026`. Public survey links: `/join/demo-si` and `/join/demo-ta`.
+Sign in on `/login` as `admin@akshara.test` (or `rater1.si@akshara.test`) with the password `Demo#2026`. Study links: `/join/demo-si`, `/join/demo-ta` (perception) and `/join/demo-si-main` (Sinhala main study).
 
 ## Deploy (Vercel + Firebase)
 
@@ -69,11 +68,9 @@ Because Vercel caps request and response bodies at about 4.5 MB, scans never pas
 1. **Dataset → Writers:** issue codes (or add a pre-written code) and mark consent when a signed form comes back.
 2. **Dataset → Upload scans:** drop files named `SI-001.jpg`, `TA-014_p2.png`… (others: type the code). A thumbnail is made in the browser.
 3. **Dataset:** click a scan to check it (approve / reject) or make it a calibration anchor. Filter by *not rated / in progress / fully rated*, phase, check status or study.
-4. **Raters → Create rater:** name, email, script(s); copy the generated login details and send them yourself.
-5. **Survey → New study** (or select scans in Dataset → *Use in survey*):
-   - *Perception* (Phase A): pick 10–15 pilot samples and choose **Public link**. Share the link (one per study, so one for Sinhala and one for Tamil); everyone who opens it gives their details and rates. By default each reader rates all samples, so every sample gets many readers; set "samples per reader" to hand out the least-rated samples first instead.
-   - *Rubric* (Phase C): needs criteria (Survey → Rubric criteria); usually approved main samples, random N raters per sample with blinded repeats.
-6. **Study page:** progress by rater and by sample, add or remove a rater on a sample, *Assign* again after adding samples or raters, read responses, download CSV, close the study.
+4. **Perception study** (Phase A, switch Sinhala/Tamil in the sidebar): choose 10–15 pilot samples (or select them in Dataset → *Add to study*), press **Start study** and share the link. By default each reader rates all samples; set "samples per reader" to hand out the least-rated samples first instead.
+5. **Main study** (Phase C): add the criteria on its *Rubric criteria* tab, choose the approved main samples (calibration anchors are shown first to every rater), set blinded repeats, start and share the link with the raters.
+6. **Study page:** status (open / no new readers / closed), readers with their details and progress, samples with response counts, every response with its boxes on the scan, CSV download. Remove a reader to delete spam or test responses.
 7. **Dataset → Export:** labels-only or public ZIP; for the full image set run `npm run export:prod -- --out ../data/akshara`.
 
 ## Export layout
@@ -85,7 +82,8 @@ ratings.csv            one row per rubric rating: study, rater alias, kind (norm
 criterion_scores.csv   long format: rating_id × criterion_key → score
 regions.json           COCO-style boxes (pixels) with criterion category, rater and note
 criteria.json          rubric definitions, all versions
-perception_responses.csv  (optional) study, sample, rater alias, score, liked / disliked text
+perception_responses.csv  (optional) study, sample, rater alias, score, liked / disliked text, box counts
+perception_marks.json  (optional) COCO-style perception boxes: good | weak, rater and note
 studies.json           every study: type, scales, rubric version
 images/                {sample_id}.jpg|png
 ```
@@ -106,7 +104,7 @@ npm run build
 | `lib/assign.ts` | Assignment planner: anchors first, balanced coverage, blinded repeats |
 | `lib/export.ts` | Dataset builder (pure functions, unit tested) |
 | `lib/auth.ts`, `lib/data.ts` | Session and role checks, Firestore access |
-| `app/admin/dataset`, `app/admin/survey`, `app/admin/raters` | The three admin tabs and their server actions |
+| `app/admin/dataset`, `app/admin/perception`, `app/admin/main` | The three admin tabs; both study pages share `app/admin/_study` |
 | `components/admin/SampleBrowser.tsx` | Shared filter bar + infinite-scroll sample grid (Dataset and study picker) |
-| `app/rate/*` | Rater home, perception form, rubric form |
-| `app/join/[token]`, `app/api/public-join` | Public survey sign-up; `lib/assign.ts → planForNewReader` hands out least-covered samples |
+| `app/rate/*` | Reader home, perception form, main-study form |
+| `app/join/[token]`, `app/api/public-join` | Study-link sign-up; `lib/assign.ts → planForNewReader` hands out anchors, least-covered samples and blinded repeats |

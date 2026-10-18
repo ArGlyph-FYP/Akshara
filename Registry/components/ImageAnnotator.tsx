@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
+import { Button } from "@/components/ui/button";
 
 export interface Box {
   x: number;
@@ -12,6 +14,12 @@ export interface Box {
 
 const PALETTE = ["#dc2626", "#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
 export const colorFor = (i: number) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
+
+/** Perception marks: solid blue for parts that look good, dashed near-black for parts that could be better. */
+export const MARK_STYLE = {
+  good: { color: "#2563eb", dashed: false },
+  weak: { color: "#111827", dashed: true },
+} as const;
 
 /**
  * Zoomable scan with an SVG overlay, starting fit-to-width at the top of the page ("Fit" returns there).
@@ -27,7 +35,7 @@ export function ImageAnnotator({
   heightClass = "h-[calc(100vh-7rem)]",
 }: {
   src: string;
-  boxes?: (Box & { color: string; label?: string })[];
+  boxes?: (Box & { color: string; label?: string; dashed?: boolean })[];
   drawMode?: boolean;
   onDraw?: (b: Box) => void;
   selected?: number | null;
@@ -71,15 +79,15 @@ export function ImageAnnotator({
         {({ zoomIn, zoomOut, resetTransform }) => (
           <>
             <div className="absolute top-2 right-2 z-10 flex gap-1">
-              <button type="button" className="btn btn-sm" onClick={() => zoomIn()}>
-                +
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => zoomOut()}>
-                −
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => resetTransform()}>
+              <Button variant="outline" size="icon-sm" aria-label="Zoom in" onClick={() => zoomIn()}>
+                <ZoomIn />
+              </Button>
+              <Button variant="outline" size="icon-sm" aria-label="Zoom out" onClick={() => zoomOut()}>
+                <ZoomOut />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => resetTransform()}>
                 Fit
-              </button>
+              </Button>
             </div>
             <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full">
               <div
@@ -120,6 +128,7 @@ export function ImageAnnotator({
                       fillOpacity={selected === i ? 0.22 : 0.1}
                       stroke={b.color}
                       strokeWidth={selected === i ? 3 : 2}
+                      strokeDasharray={b.dashed ? "6 4" : undefined}
                       vectorEffect="non-scaling-stroke"
                       style={{ pointerEvents: drawMode ? "none" : "auto", cursor: "pointer" }}
                       onClick={() => onSelect?.(i)}

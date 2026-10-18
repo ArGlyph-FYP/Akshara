@@ -1,12 +1,14 @@
 "use client";
 
 import { signOut } from "firebase/auth";
+import { Button } from "@/components/ui/button";
 import { clientAuth } from "@/lib/firebase/client";
 
 export function SignOutButton() {
   return (
-    <button
-      className="btn btn-sm"
+    <Button
+      variant="outline"
+      size="sm"
       onClick={async () => {
         await fetch("/api/session", { method: "DELETE" });
         await signOut(clientAuth()).catch(() => {});
@@ -14,6 +16,6 @@ export function SignOutButton() {
       }}
     >
       Sign out
-    </button>
+    </Button>
   );
 }

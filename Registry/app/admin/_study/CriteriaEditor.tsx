@@ -55,7 +55,7 @@ export function CriteriaEditor({ script, criteria, version }: { script: Script; 
         <Badge variant="secondary" className="bg-brand-soft text-primary">
           {SCRIPT_LABEL[script]} rubric · version {version}
         </Badge>
-        <span className="text-sm text-muted-foreground">Used by new rubric studies. Each script has its own rubric.</span>
+        <span className="text-sm text-muted-foreground">Raters score every active criterion. A started main study keeps the version it began with.</span>
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
@@ -79,7 +79,7 @@ export function CriteriaEditor({ script, criteria, version }: { script: Script; 
 
       {current.length === 0 ? (
         <EmptyState title="No criteria yet">
-          Add the criteria that come out of the perception survey, e.g. letter formation, spacing, baseline alignment.
+          Add the criteria that come out of the perception study, e.g. letter formation, spacing, baseline alignment.
         </EmptyState>
       ) : (
         <div className="divide-y rounded-xl border bg-card">

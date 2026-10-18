@@ -161,9 +161,10 @@ export function planAllToAll(input: {
 }
 
 /**
- * Public link: picks samples for one new reader. Each sample's coverage is its number of readers so far;
- * the least-covered samples are chosen first (random among ties) so every sample collects as many readers
- * as possible. `perReader` null = all samples. The reader's queue order is shuffled.
+ * Public link: plans one new reader's queue. Calibration anchors they haven't seen come first (kind "anchor").
+ * Other samples are chosen least-covered first (random among ties), so every sample collects as many readers
+ * as possible; `perReader` caps them (null = all) and their order is shuffled. With `repeatFraction`, a share of
+ * those items is shown again later in the queue, blinded (kind "repeat"), at least `minRepeatGap` items apart.
  */
 export function planForNewReader(input: {
   samples: AssignSample[];
@@ -171,6 +172,8 @@ export function planForNewReader(input: {
   existing: ExistingAssignment[];
   perReader: number | null;
   seed: string;
+  repeatFraction?: number;
+  minRepeatGap?: number;
 }): NewAssignment[] {
   const rand = seededRandom(input.seed);
   const coverage = new Map(input.samples.map((s) => [s.id, 0]));
@@ -178,12 +181,28 @@ export function planForNewReader(input: {
     if (a.kind !== "repeat" && coverage.has(a.sampleId)) coverage.set(a.sampleId, coverage.get(a.sampleId)! + 1);
   }
   const mine = new Set(input.existing.filter((a) => a.raterId === input.readerId).map((a) => a.sampleId));
-  const candidates = input.samples
-    .filter((s) => !mine.has(s.id))
+  const fresh = input.samples.filter((s) => !mine.has(s.id));
+  const anchors = fresh.filter((s) => s.isAnchor);
+  const candidates = fresh
+    .filter((s) => !s.isAnchor)
     .map((s) => ({ s, cov: coverage.get(s.id)!, tie: rand() }))
     .sort((a, b) => a.cov - b.cov || a.tie - b.tie);
   const n = input.perReader && input.perReader > 0 ? Math.min(input.perReader, candidates.length) : candidates.length;
-  const picked = shuffle(candidates.slice(0, n).map((c) => c.s), rand);
+  const normals = shuffle(candidates.slice(0, n).map((c) => c.s.id), rand);
+
+  const seq: { sampleId: string; kind: AssignmentKind }[] = [
+    ...anchors.map((s) => ({ sampleId: s.id, kind: "anchor" as const })),
+    ...normals.map((id) => ({ sampleId: id, kind: "normal" as const })),
+  ];
+  const gap = input.minRepeatGap ?? 5;
+  const repeatCount = Math.round(normals.length * Math.min(Math.max(input.repeatFraction ?? 0, 0), 0.5));
+  for (const sampleId of shuffle(normals.slice(0, Math.ceil(normals.length / 2)), rand).slice(0, repeatCount)) {
+    const orig = seq.findIndex((x) => x.sampleId === sampleId && x.kind === "normal");
+    const earliest = Math.min(orig + gap + 1, seq.length);
+    const at = earliest + Math.floor(rand() * (seq.length - earliest + 1));
+    seq.splice(at, 0, { sampleId, kind: "repeat" });
+  }
+
   const base = input.existing.filter((a) => a.raterId === input.readerId).reduce((m, a) => Math.max(m, a.position), -1) + 1;
-  return picked.map((s, i) => ({ raterId: input.readerId, sampleId: s.id, kind: "normal", position: base + i }));
+  return seq.map((x, i) => ({ raterId: input.readerId, sampleId: x.sampleId, kind: x.kind, position: base + i }));
 }

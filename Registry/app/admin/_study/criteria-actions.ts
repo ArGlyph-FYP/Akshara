@@ -43,7 +43,7 @@ export async function addCriterion(_: ActionResult, fd: FormData) {
     if (dup) throw new Error(`"${f.key}" already exists in v${version}`);
     const c: Omit<Criterion, "id"> = { script: sc, rubricVersion: version, active: true, ...f };
     await col.criteria().doc(newId()).set(c);
-    revalidatePath("/admin/survey");
+    revalidatePath("/admin/main");
     return `Added ${f.key}`;
   });
 }
@@ -59,7 +59,7 @@ export async function updateCriterion(_: ActionResult, fd: FormData) {
       throw new Error("Already used in ratings: only labels, description, order and active can change. Start a new rubric version instead.");
     }
     await col.criteria().doc(id).update({ ...f, active: str(fd, "active") === "1" });
-    revalidatePath("/admin/survey");
+    revalidatePath("/admin/main");
     return "Saved";
   });
 }
@@ -81,7 +81,7 @@ export async function newRubricVersion(_: ActionResult, fd: FormData) {
     }
     batch.set(col.settings(), { rubricVersion: { ...settings.rubricVersion, [sc]: next } }, { merge: true });
     await batch.commit();
-    revalidatePath("/admin/survey");
+    revalidatePath("/admin/main");
     return `Now on v${next} (${toCopy.length} criteria copied). Raters see v${next} from their next item.`;
   });
 }

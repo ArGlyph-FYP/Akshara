@@ -62,11 +62,13 @@ export async function GET(req: Request) {
           liked_text: r.likedText,
           disliked_text: r.dislikedText,
           n_regions: r.regions.length,
+          // Perception marks as normalised (0–1) boxes: tone, x, y, w, h, note.
+          marks_json: r.studyType === "perception" && r.regions.length ? JSON.stringify(r.regions.map(({ tone, x, y, w, h, note }) => ({ tone, x, y, w, h, note }))) : "",
           duration_ms: r.durationMs,
           submitted_at: new Date(r.submittedAt).toISOString(),
         };
       });
-    const cols = ["participant_code", "page_no", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "duration_ms", "submitted_at"];
+    const cols = ["participant_code", "page_no", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
     const slug = study.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     return new Response(toCsv(cols, rows), {
       headers: {

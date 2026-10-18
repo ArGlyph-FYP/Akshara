@@ -96,9 +96,14 @@ export const DEFAULT_SCALES = {
   legibility: { min: 1, max: 5 } as Scale,
 };
 
-/** perception = Phase A (score + open-text reasons); rubric = Phase C (overall, legibility, criteria, regions). */
+/**
+ * perception = Phase A perception study (score, open-text reasons, good/weak marks);
+ * rubric = Phase C main study (overall, legibility, rubric criteria, weak regions).
+ * Each script has one of each, shared with readers through its public link.
+ */
 export type StudyType = "perception" | "rubric";
-export const STUDY_LABEL: Record<StudyType, string> = { perception: "Perception", rubric: "Rubric rating" };
+export const STUDY_LABEL: Record<StudyType, string> = { perception: "Perception study", rubric: "Main study" };
+export const STUDY_PATH: Record<StudyType, string> = { perception: "/admin/perception", rubric: "/admin/main" };
 
 export interface Study {
   id: string;
@@ -117,6 +122,8 @@ export interface Study {
   publicOpen?: boolean;
   /** Samples each public reader gets (null = all of the study's samples). Least-covered samples go first. */
   perReader?: number | null;
+  /** Main study: share (%) of each reader's items shown again later, blinded, for rater-consistency checks. */
+  repeatPct?: number | null;
   createdAt: number;
 }
 
@@ -134,8 +141,15 @@ export interface Assignment {
   createdAt: number;
 }
 
+/** Perception studies: a part the reader marked as looking good, or as one that could be better. */
+export type MarkTone = "good" | "weak";
+export const MARK_LABEL: Record<MarkTone, string> = { good: "Looks good", weak: "Could be better" };
+
 export interface Region {
+  /** Rubric studies; empty for perception marks. */
   criterionId: string;
+  /** Perception studies only. */
+  tone?: MarkTone;
   /** Normalised 0–1 coordinates relative to the full image. */
   x: number;
   y: number;

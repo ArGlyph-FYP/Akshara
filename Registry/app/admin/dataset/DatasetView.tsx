@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Download, FolderPlus, ImagePlus, MessagesSquare, X } from "lucide-react";
+import { Check, ChevronDown, ClipboardCheck, Download, ImagePlus, MessagesSquare, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { act } from "@/lib/client-action";
 import { PICK_KEY, type SampleRow, type StudyRef } from "@/lib/dataset-types";
-import { SCRIPT_LABEL, type Participant, type Script } from "@/lib/types";
-import { addSamplesToStudy } from "../survey/study-actions";
+import { SCRIPT_LABEL, STUDY_LABEL, STUDY_PATH, type Participant, type Script, type StudyType } from "@/lib/types";
+import { addSamplesToStudy } from "../_study/actions";
 import { setStatus } from "./sample-actions";
 import { SampleSheet } from "./SampleSheet";
 import { UploadDialog, type Known } from "./UploadDialog";
@@ -57,19 +57,24 @@ export function DatasetView({
     }
   }
 
-  function newStudyFromSelection() {
-    try {
-      sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, ids }));
-    } catch {}
-    router.push("/admin/survey/new?from=dataset");
-  }
+  // Studies come newest first; each script has one perception and one main study.
+  const studyOf = (type: StudyType): StudyRef | undefined => studies.find((s) => s.type === type);
 
-  async function addTo(study: StudyRef) {
+  /** Adds the selection to a running study, or opens that study's setup with these samples chosen. */
+  async function addTo(type: StudyType) {
+    const study = studyOf(type);
+    if (!study) {
+      try {
+        sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, type, ids }));
+      } catch {}
+      router.push(STUDY_PATH[type]);
+      return;
+    }
     const r = await addSamplesToStudy(study.id, ids);
     if (!r.ok) return toast.error(r.error);
-    toast.success(`Added ${r.added} sample${r.added === 1 ? "" : "s"} to “${study.title}”`, {
-      description: "Open the study and use “Assign” to give them to raters.",
-      action: { label: "Open", onClick: () => router.push(`/admin/survey/${study.id}`) },
+    toast.success(`Added ${r.added} sample${r.added === 1 ? "" : "s"} to the ${STUDY_LABEL[type].toLowerCase()}`, {
+      description: "Readers who join from now on get them.",
+      action: { label: "Open", onClick: () => router.push(STUDY_PATH[type]) },
     });
     sel.clear();
     router.refresh();
@@ -79,7 +84,7 @@ export function DatasetView({
     <div>
       <PageHeader
         title="Dataset"
-        description={`All ${SCRIPT_LABEL[script]} handwriting scans. Upload, check and browse them here; pick samples for a survey or rating study.`}
+        description={`All ${SCRIPT_LABEL[script]} handwriting scans. Upload, check and browse them here, then select samples to add to the perception or main study.`}
       >
         <WritersSheet script={script} writers={writers} scanCount={scanCount} />
         <DropdownMenu>
@@ -169,21 +174,22 @@ export function DatasetView({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm">
-                  <MessagesSquare /> Use in survey <ChevronDown className="opacity-70" />
+                  <Plus /> Add to study <ChevronDown className="opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem onSelect={newStudyFromSelection}>
-                  <FolderPlus /> New study with these samples
-                </DropdownMenuItem>
-                {studies.length > 0 && <DropdownMenuSeparator />}
-                {studies.length > 0 && <DropdownMenuLabel className="text-xs text-muted-foreground">Add to existing</DropdownMenuLabel>}
-                {studies.map((s) => (
-                  <DropdownMenuItem key={s.id} onSelect={() => addTo(s)}>
-                    <span className="truncate">{s.title}</span>
-                    <span className="ml-auto text-xs text-muted-foreground">{s.type === "rubric" ? "rubric" : "perception"}</span>
-                  </DropdownMenuItem>
-                ))}
+                {(["perception", "rubric"] as const).map((type) => {
+                  const Icon = type === "perception" ? MessagesSquare : ClipboardCheck;
+                  return (
+                    <DropdownMenuItem key={type} onSelect={() => addTo(type)}>
+                      <Icon />
+                      <div>
+                        <div>{STUDY_LABEL[type]}</div>
+                        <div className="text-xs text-muted-foreground">{studyOf(type) ? "Add to the running study" : "Start it with these samples"}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="ghost" size="icon-sm" onClick={sel.clear} aria-label="Clear selection">
