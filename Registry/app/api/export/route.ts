@@ -53,6 +53,7 @@ export async function GET(req: Request) {
         return {
           participant_code: smp?.participantCode ?? "",
           page_no: smp?.pageNo ?? "",
+          part: smp?.part ?? "",
           sample_id: r.sampleId,
           writer_id: smp?.writerId ?? "",
           rater: data.raterAliases[r.raterId] ?? "R?",
@@ -68,7 +69,7 @@ export async function GET(req: Request) {
           submitted_at: new Date(r.submittedAt).toISOString(),
         };
       });
-    const cols = ["participant_code", "page_no", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
+    const cols = ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
     const slug = study.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     return new Response(toCsv(cols, rows), {
       headers: {

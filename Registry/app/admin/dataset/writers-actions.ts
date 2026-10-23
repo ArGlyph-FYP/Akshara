@@ -157,7 +157,7 @@ export async function purge(_: ActionResult, fd: FormData) {
     const studies = await listStudies();
     const bucket = adminBucket();
     for (const s of samples.docs) {
-      for (const key of ["imagePath", "thumbPath"]) {
+      for (const key of ["imagePath", "thumbPath", "sourcePath"]) {
         const path = s.data()[key] as string | null | undefined;
         if (path) await bucket.file(path).delete({ ignoreNotFound: true });
       }

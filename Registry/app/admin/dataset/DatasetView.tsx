@@ -122,7 +122,7 @@ export function DatasetView({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <UploadDialog known={known} />
+        <UploadDialog known={known} script={script} />
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">

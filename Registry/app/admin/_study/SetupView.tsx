@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { sampleLabel } from "@/lib/codes";
 import { PICK_KEY } from "@/lib/dataset-types";
 import { SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG } from "@/lib/types";
 import { startStudy } from "./actions";
@@ -110,8 +111,8 @@ export function SetupView({ data }: { data: StudyPageData }) {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
               {picked.slice(0, 48).map((r) => (
                 <div key={r.id} className="space-y-1">
-                  <Thumb id={r.id} className="aspect-[3/4] rounded-md border" />
-                  <div className="truncate text-center font-mono text-[11px] text-muted-foreground">{r.code}</div>
+                  <Thumb id={r.id} className="aspect-[3/4] rounded-md border" contain={!!r.part} />
+                  <div className="truncate text-center font-mono text-[11px] text-muted-foreground">{sampleLabel(r)}</div>
                 </div>
               ))}
             </div>

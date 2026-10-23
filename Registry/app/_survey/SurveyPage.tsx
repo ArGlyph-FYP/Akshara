@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { getStudyByPublicToken, listAssignments, listSamples } from "@/lib/data";
-import { publicLinkOpen } from "@/lib/public";
+import { getStudyByPublicToken, listAssignments } from "@/lib/data";
+import { publicLinkOpen, usableStudySamples } from "@/lib/public";
 import { SCRIPT_LABEL, surveyPath, type Script } from "@/lib/types";
 import { JoinForm } from "./JoinForm";
 import { Logo } from "@/components/Logo";
@@ -25,10 +25,7 @@ export async function SurveyPage({ script, token }: { script: Script; token: str
     if (mine.length) redirect(`/rate/next?study=${study.id}`);
   }
   // What one new reader will get: anchors (main study) + their share of the samples + blinded repeats.
-  const inStudy = new Set(study.sampleIds);
-  const usable = (await listSamples({ script: study.script })).filter(
-    (s) => inStudy.has(s.id) && s.imagePath && s.status !== "excluded" && s.status !== "rejected",
-  );
+  const usable = await usableStudySamples(study);
   const anchors = study.type === "rubric" ? usable.filter((s) => s.isAnchor).length : 0;
   const others = usable.length - anchors;
   const share = study.perReader ? Math.min(study.perReader, others) : others;

@@ -19,7 +19,7 @@ Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storag
 ## Privacy, following the consent form
 
 - The app stores **no names and no consent scans**, only the date consent was recorded and who recorded it. Paper consent forms stay locked away.
-- Each participant gets a random `writerId`. **Public** exports contain writer IDs only, never `SI-`/`TA-` codes. Raters and survey readers appear only as aliases (`R03`).
+- Each participant gets a random `writerId`. **Public** exports contain writer IDs only, never `SI-`/`TA-` codes. Raters appear only as aliases (`R03`; survey-link readers get random ones like `R-K7M2QX`).
 - Withdrawing a participant excludes their samples from rating and from all exports immediately. "Delete data" then permanently removes their scans and every rating of them.
 
 ## Run locally (emulators, no real project needed)
@@ -66,7 +66,9 @@ Because Vercel caps request and response bodies at about 4.5 MB, scans never pas
 ## Typical workflow
 
 1. **Dataset → Writers:** issue codes (or add a pre-written code) and mark consent when a signed form comes back.
-2. **Dataset → Upload scans:** drop files named `SI-001.jpg`, `TA-014_p2.png`… (others: type the code). A thumbnail is made in the browser.
+2. **Dataset → Upload scans:**
+   - **Forms (2 paragraphs)** tab: drop the scanner's PDFs (every page is one form) or JPEG/PNG scans. The browser finds the two handwritten paragraphs (the blank line between them) and shows the zoomed code box; type the code (`S001`, `1` or `SI-001`), drag the boxes if needed, and upload. Each form becomes two samples, `SI-001-1` and `SI-001-2`; the full page is kept too (open it from the sample's side panel).
+   - **Single images** tab: one sample per file, named `SI-001.jpg`, `TA-014_p2.png`… (others: type the code). A thumbnail is made in the browser.
 3. **Dataset:** click a scan to check it (approve / reject) or make it a calibration anchor. Filter by *not rated / in progress / fully rated*, phase, check status or study.
 4. **Perception study** (Phase A, switch Sinhala/Tamil in the sidebar): choose 10–15 pilot samples (or select them in Dataset → *Add to study*), press **Start study** and share the link. By default each reader rates all samples; set "samples per reader" to hand out the least-rated samples first instead.
 5. **Main study** (Phase C): add the criteria on its *Rubric criteria* tab, choose the approved main samples (calibration anchors are shown first to every rater), set blinded repeats, start and share the link with the raters.

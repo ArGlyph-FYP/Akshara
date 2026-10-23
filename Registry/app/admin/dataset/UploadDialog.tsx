@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, CloudUpload, Loader2, TriangleAlert, Upload, X } from "lucide-react";
+import { CheckCircle2, CloudUpload, FileText, Images, Loader2, TriangleAlert, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,10 +10,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normaliseCode } from "@/lib/codes";
 import { ACCEPTED_TYPES, parseScanFilename } from "@/lib/filenames";
+import type { Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { completeUpload, prepareUpload, uploadScanDirect, type ScanMeta } from "./upload-actions";
+import { FormUploadPane } from "./FormUploadPane";
+import type { ScanMeta } from "./upload-actions";
+import { sendScan } from "./upload-client";
 
 export type Known = Record<string, { consent: boolean; withdrawn: boolean }>;
 
@@ -41,7 +45,7 @@ async function makeThumb(bmp: ImageBitmap): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.8));
 }
 
-export function UploadDialog({ known }: { known: Known }) {
+export function UploadDialog({ known, script }: { known: Known; script: Script }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -50,6 +54,7 @@ export function UploadDialog({ known }: { known: Known }) {
   const [phase, setPhase] = useState<"main" | "pilot">("main");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [mode, setMode] = useState<"forms" | "images">("forms");
 
   function addFiles(list: FileList | File[]) {
     const next: Row[] = Array.from(list).map((file) => {
@@ -95,20 +100,7 @@ export function UploadDialog({ known }: { known: Known }) {
       phase,
     };
     bmp.close();
-    const prep = await prepareUpload(meta);
-    if (prep.error || !prep.id) throw new Error(prep.error ?? "Upload failed");
-    if (prep.direct) {
-      const fd = new FormData();
-      fd.set("file", r.file);
-      if (thumb) fd.set("thumb", new File([thumb], "thumb.jpg", { type: "image/jpeg" }));
-      return uploadScanDirect(meta, prep.id, fd);
-    }
-    const put = await fetch(prep.url!, { method: "PUT", headers: { "content-type": r.file.type }, body: r.file });
-    if (!put.ok) throw new Error(`Storage upload failed (${put.status})`);
-    if (thumb && prep.thumbUrl) {
-      await fetch(prep.thumbUrl, { method: "PUT", headers: { "content-type": "image/jpeg" }, body: thumb }).catch(() => {});
-    }
-    return completeUpload(meta, prep.id);
+    return sendScan(meta, r.file, thumb);
   }
 
   async function uploadAll() {
@@ -132,6 +124,33 @@ export function UploadDialog({ known }: { known: Known }) {
     router.refresh();
   }
 
+  const options = (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+      <label className="flex items-center gap-2">
+        <Checkbox checked={register} disabled={busy} onCheckedChange={(v) => setRegister(!!v)} />
+        Register new codes: I confirm their consent forms were received
+      </label>
+      {register && (
+        <div className="flex items-center gap-2">
+          <Label className="text-muted-foreground">as</Label>
+          <Select value={phase} disabled={busy} onValueChange={(v) => setPhase(v as "main" | "pilot")}>
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="main">Main phase</SelectItem>
+              <SelectItem value="pilot">Pilot phase</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <label className="flex items-center gap-2">
+        <Checkbox checked={replace} disabled={busy} onCheckedChange={(v) => setReplace(!!v)} />
+        Replace samples already uploaded (if not yet rated)
+      </label>
+    </div>
+  );
+
   return (
     <Dialog
       open={open}
@@ -146,153 +165,161 @@ export function UploadDialog({ known }: { known: Known }) {
           <Upload /> Upload scans
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] gap-4 overflow-hidden sm:max-w-3xl">
+      <DialogContent className={cn("max-h-[94vh] gap-4 overflow-y-auto", mode === "forms" ? "sm:max-w-6xl" : "sm:max-w-3xl")}>
         <DialogHeader>
           <DialogTitle>Upload scans</DialogTitle>
           <DialogDescription>
-            Name files like <code className="rounded bg-muted px-1">SI-001.jpg</code> or{" "}
-            <code className="rounded bg-muted px-1">TA-014_p2.png</code> to match them automatically. JPEG or PNG, 300 dpi recommended.
+            {mode === "forms" ? (
+              <>Scanned Akshara forms: each page is split into its two paragraphs, saved as e.g. SI-001-1 and SI-001-2.</>
+            ) : (
+              <>
+                Whole pages as one sample each. Name files like <code className="rounded bg-muted px-1">SI-001.jpg</code> or{" "}
+                <code className="rounded bg-muted px-1">TA-014_p2.png</code> to match them automatically. JPEG or PNG, 300 dpi recommended.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        <label
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            addFiles(e.dataTransfer.files);
-          }}
-          className={cn(
-            "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-8 text-sm transition",
-            dragging ? "border-primary bg-brand-soft" : "hover:border-primary/40 hover:bg-muted/40",
-          )}
-        >
-          <CloudUpload className="size-7 text-muted-foreground" />
-          <span className="font-medium">Drop scans here, or click to choose</span>
-          <span className="text-xs text-muted-foreground">You can select many files at once</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
-        </label>
-
-        {rows.length > 0 && (
-          <>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
-              <label className="flex items-center gap-2">
-                <Checkbox checked={register} onCheckedChange={(v) => setRegister(!!v)} />
-                Register new codes: I confirm their consent forms were received
-              </label>
-              {register && (
-                <div className="flex items-center gap-2">
-                  <Label className="text-muted-foreground">as</Label>
-                  <Select value={phase} onValueChange={(v) => setPhase(v as "main" | "pilot")}>
-                    <SelectTrigger size="sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="main">Main phase</SelectItem>
-                      <SelectItem value="pilot">Pilot phase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <Tabs value={mode} onValueChange={(v) => !busy && setMode(v as "forms" | "images")}>
+          <TabsList>
+            <TabsTrigger value="forms" disabled={busy}>
+              <FileText /> Forms (2 paragraphs)
+            </TabsTrigger>
+            <TabsTrigger value="images" disabled={busy}>
+              <Images /> Single images
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="forms" className="mt-3 space-y-3" forceMount hidden={mode !== "forms"}>
+            {options}
+            <FormUploadPane
+              script={script}
+              known={known}
+              register={register}
+              replace={replace}
+              phase={phase}
+              busy={busy}
+              setBusy={setBusy}
+              onUploaded={() => router.refresh()}
+            />
+          </TabsContent>
+          <TabsContent value="images" className="mt-3 space-y-4">
+            <label
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                addFiles(e.dataTransfer.files);
+              }}
+              className={cn(
+                "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-8 text-sm transition",
+                dragging ? "border-primary bg-brand-soft" : "hover:border-primary/40 hover:bg-muted/40",
               )}
-              <label className="flex items-center gap-2">
-                <Checkbox checked={replace} onCheckedChange={(v) => setReplace(!!v)} />
-                Replace pages already uploaded (if not yet rated)
-              </label>
-            </div>
+            >
+              <CloudUpload className="size-7 text-muted-foreground" />
+              <span className="font-medium">Drop scans here, or click to choose</span>
+              <span className="text-xs text-muted-foreground">You can select many files at once</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </label>
 
-            <div className="-mx-1 max-h-[38vh] overflow-y-auto px-1">
-              <div className="divide-y rounded-lg border">
-                {rows.map((r) => {
-                  const p = r.state === "ready" ? problem(r) : null;
-                  const c = normaliseCode(r.code);
-                  return (
-                    <div key={r.key} className="flex items-center gap-2 px-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate" title={r.file.name}>
-                        {r.file.name}
-                        <span className="ml-2 text-xs text-muted-foreground">{(r.file.size / 1024 / 1024).toFixed(1)} MB</span>
-                      </span>
-                      <Input
-                        className="h-7 w-24 font-mono"
-                        value={r.code}
-                        placeholder="SI-001"
-                        disabled={r.state === "done" || busy}
-                        onChange={(e) => update(r.key, { code: e.target.value })}
-                        onBlur={(e) => {
-                          const n = normaliseCode(e.target.value);
-                          if (n) update(r.key, { code: n.code });
-                        }}
-                      />
-                      <Input
-                        type="number"
-                        min={1}
-                        className="h-7 w-14"
-                        title="Page"
-                        value={r.pageNo}
-                        disabled={r.state === "done" || busy}
-                        onChange={(e) => update(r.key, { pageNo: Math.max(1, Number(e.target.value) || 1) })}
-                      />
-                      <span className="w-48 text-right text-xs">
-                        {r.state === "done" && (
-                          <span className="inline-flex items-center gap-1 text-success">
-                            <CheckCircle2 className="size-3.5" /> Uploaded
-                          </span>
-                        )}
-                        {r.state === "uploading" && (
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            <Loader2 className="size-3.5 animate-spin" /> Uploading
-                          </span>
-                        )}
-                        {r.state === "error" && <span className="text-destructive">{r.message}</span>}
-                        {r.state === "ready" &&
-                          (p ? (
-                            <span className="inline-flex items-center gap-1 text-foreground">
-                              <TriangleAlert className="size-3.5" /> {p}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">{c?.script === "ta" ? "Tamil · ready" : "Sinhala · ready"}</span>
-                          ))}
-                      </span>
-                      {r.state !== "uploading" && (
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          disabled={busy}
-                          aria-label="Remove"
-                          onClick={() => setRows((prev) => prev.filter((o) => o.key !== r.key))}
-                        >
-                          <X />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
+            {rows.length > 0 && (
+              <>
+                {options}
 
-        <DialogFooter className="items-center sm:justify-between">
-          <span className="text-xs text-muted-foreground">
-            {rows.length > 0 && `${done} uploaded · ${ready.length} ready · ${pending.length - ready.length} need attention`}
-          </span>
-          <Button onClick={uploadAll} disabled={busy || ready.length === 0}>
-            {busy ? <Loader2 className="animate-spin" /> : <Upload />}
-            {busy ? "Uploading…" : `Upload ${ready.length || ""}`.trim()}
-          </Button>
-        </DialogFooter>
+                <div className="-mx-1 max-h-[38vh] overflow-y-auto px-1">
+                  <div className="divide-y rounded-lg border">
+                    {rows.map((r) => {
+                      const p = r.state === "ready" ? problem(r) : null;
+                      const c = normaliseCode(r.code);
+                      return (
+                        <div key={r.key} className="flex items-center gap-2 px-3 py-2 text-sm">
+                          <span className="min-w-0 flex-1 truncate" title={r.file.name}>
+                            {r.file.name}
+                            <span className="ml-2 text-xs text-muted-foreground">{(r.file.size / 1024 / 1024).toFixed(1)} MB</span>
+                          </span>
+                          <Input
+                            className="h-7 w-24 font-mono"
+                            value={r.code}
+                            placeholder="SI-001"
+                            disabled={r.state === "done" || busy}
+                            onChange={(e) => update(r.key, { code: e.target.value })}
+                            onBlur={(e) => {
+                              const n = normaliseCode(e.target.value);
+                              if (n) update(r.key, { code: n.code });
+                            }}
+                          />
+                          <Input
+                            type="number"
+                            min={1}
+                            className="h-7 w-14"
+                            title="Page"
+                            value={r.pageNo}
+                            disabled={r.state === "done" || busy}
+                            onChange={(e) => update(r.key, { pageNo: Math.max(1, Number(e.target.value) || 1) })}
+                          />
+                          <span className="w-48 text-right text-xs">
+                            {r.state === "done" && (
+                              <span className="inline-flex items-center gap-1 text-success">
+                                <CheckCircle2 className="size-3.5" /> Uploaded
+                              </span>
+                            )}
+                            {r.state === "uploading" && (
+                              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                <Loader2 className="size-3.5 animate-spin" /> Uploading
+                              </span>
+                            )}
+                            {r.state === "error" && <span className="text-destructive">{r.message}</span>}
+                            {r.state === "ready" &&
+                              (p ? (
+                                <span className="inline-flex items-center gap-1 text-foreground">
+                                  <TriangleAlert className="size-3.5" /> {p}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">{c?.script === "ta" ? "Tamil · ready" : "Sinhala · ready"}</span>
+                              ))}
+                          </span>
+                          {r.state !== "uploading" && (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              disabled={busy}
+                              aria-label="Remove"
+                              onClick={() => setRows((prev) => prev.filter((o) => o.key !== r.key))}
+                            >
+                              <X />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <DialogFooter className="items-center sm:justify-between">
+              <span className="text-xs text-muted-foreground">
+                {rows.length > 0 && `${done} uploaded · ${ready.length} ready · ${pending.length - ready.length} need attention`}
+              </span>
+              <Button onClick={uploadAll} disabled={busy || ready.length === 0}>
+                {busy ? <Loader2 className="animate-spin" /> : <Upload />}
+                {busy ? "Uploading…" : `Upload ${ready.length || ""}`.trim()}
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

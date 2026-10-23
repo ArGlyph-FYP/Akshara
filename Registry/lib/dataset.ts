@@ -28,6 +28,7 @@ export async function datasetRows(script: Script): Promise<{ rows: SampleRow[]; 
       id: s.id,
       code: s.participantCode,
       pageNo: s.pageNo,
+      part: s.part ?? null,
       phase: s.phase,
       status: s.status,
       isAnchor: s.isAnchor,

@@ -31,6 +31,7 @@
     "lucide-react": "^1.58.0",
     "nanoid": "^5.1.16",
     "next": "15.5.28",
+    "pdfjs-dist": "^6.3.289",
     "radix-ui": "^1.8.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",

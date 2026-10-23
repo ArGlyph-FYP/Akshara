@@ -51,6 +51,12 @@ export interface Sample {
   script: Script;
   phase: Phase;
   pageNo: number;
+  /** Paragraph number when a form page was split into paragraphs (shown as SI-001-1, SI-001-2); absent for a whole page. */
+  part?: number | null;
+  /** Full scanned page this paragraph was cut from (kept so the crop can be checked or redone). */
+  sourcePath?: string | null;
+  /** Where the crop sits on the source page, as fractions (0–1) of its width and height. */
+  crop?: { x: number; y: number; w: number; h: number } | null;
   imagePath: string | null;
   /** Small JPEG preview for grids; null for older uploads (the full image is used instead). */
   thumbPath?: string | null;

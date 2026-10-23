@@ -1,5 +1,6 @@
 import "server-only";
 import type { Query } from "firebase-admin/firestore";
+import { compareSamples } from "./codes";
 import { adminDb } from "./firebase/admin";
 import {
   DEFAULT_SETTINGS,
@@ -55,12 +56,32 @@ export async function listSamples(filter: Partial<Pick<Sample, "script" | "phase
   let q: Query = col.samples();
   for (const [k, v] of Object.entries(filter)) if (v) q = q.where(k, "==", v);
   const rows = await all<Sample>(q);
-  return rows.sort((a, b) => a.participantCode.localeCompare(b.participantCode) || a.pageNo - b.pageNo);
+  return rows.sort(compareSamples);
 }
 
 export async function getSample(id: string): Promise<Sample | null> {
   const snap = await col.samples().doc(id).get();
   return snap.exists ? ({ id: snap.id, ...snap.data() } as Sample) : null;
+}
+
+/** Loads only the given samples (cheaper than listing a whole script's samples). Missing ones are skipped. */
+export async function getSamplesByIds(ids: string[]): Promise<Sample[]> {
+  const out: Sample[] = [];
+  for (let i = 0; i < ids.length; i += 300) {
+    const snaps = await db().getAll(...ids.slice(i, i + 300).map((id) => col.samples().doc(id)));
+    for (const d of snaps) if (d.exists) out.push({ id: d.id, ...d.data() } as Sample);
+  }
+  return out;
+}
+
+/** Loads only the given users. Missing ones are skipped. */
+export async function getUsersByIds(uids: string[]): Promise<(UserDoc & { uid: string })[]> {
+  const out: (UserDoc & { uid: string })[] = [];
+  for (let i = 0; i < uids.length; i += 300) {
+    const snaps = await db().getAll(...uids.slice(i, i + 300).map((id) => col.users().doc(id)));
+    for (const d of snaps) if (d.exists) out.push({ uid: d.id, ...(d.data() as UserDoc) });
+  }
+  return out;
 }
 
 export async function listCriteria(script?: Script, onlyActive = false): Promise<Criterion[]> {

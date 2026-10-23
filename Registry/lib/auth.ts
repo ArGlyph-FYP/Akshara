@@ -16,14 +16,23 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (!cookie) return null;
   let decoded;
   try {
-    decoded = await adminAuth().verifySessionCookie(cookie, true);
+    // Checked locally (no call to Firebase Auth), so busy survey traffic stays fast.
+    decoded = await adminAuth().verifySessionCookie(cookie);
   } catch {
-    return null; // expired, revoked or forged cookie
+    return null; // expired or forged cookie
   }
   // Anonymous sign-ins are public-link readers; they count only once /api/public-join created their users doc.
+  // Readers are cut off through `active`; admins also get the revocation check (password resets, removed access).
   const snap = await adminDb().collection("users").doc(decoded.uid).get();
   const user = snap.data() as UserDoc | undefined;
   if (!user || !user.active) return null;
+  if (user.role === "admin") {
+    try {
+      await adminAuth().verifySessionCookie(cookie, true);
+    } catch {
+      return null; // revoked
+    }
+  }
   return { kind: "staff", uid: decoded.uid, user };
 });
 

@@ -1,3 +1,4 @@
+import { compareSamples } from "./codes";
 import { toCsv } from "./csv";
 import type { Criterion, Participant, Phase, Rating, Sample, Script, Study } from "./types";
 
@@ -58,7 +59,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
         s.imagePath &&
         !withdrawn.has(s.participantCode),
     )
-    .sort((a, b) => a.script.localeCompare(b.script) || a.participantCode.localeCompare(b.participantCode) || a.pageNo - b.pageNo);
+    .sort((a, b) => a.script.localeCompare(b.script) || compareSamples(a, b));
   const sampleById = new Map(samples.map((s) => [s.id, s]));
 
   const images: ExportImage[] = samples.map((s) => ({
@@ -75,6 +76,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     "script",
     "phase",
     "page_no",
+    "part",
     "file",
     "width",
     "height",
@@ -90,6 +92,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       script: s.script,
       phase: s.phase,
       page_no: s.pageNo,
+      part: s.part ?? "",
       file: `images/${s.id}.${ext(s)}`,
       width: s.width,
       height: s.height,

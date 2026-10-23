@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { act } from "@/lib/client-action";
+import { sampleLabel } from "@/lib/codes";
 import { QC_LABEL, type SampleRow } from "@/lib/dataset-types";
 import type { SampleStatus } from "@/lib/types";
 import { sampleDetail, setAnchor, setStatus, type SampleDetail } from "./sample-actions";
@@ -56,11 +57,18 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
       <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-[min(1100px,96vw)]!">
         <SheetHeader className="border-b">
           <SheetTitle className="font-mono text-lg">
-            {row?.code}
-            {row && row.pageNo > 1 && <span className="text-muted-foreground"> · page {row.pageNo}</span>}
+            {row && sampleLabel(row)}
           </SheetTitle>
           <SheetDescription>
             {detail ? `${detail.phase} phase · ${detail.width}×${detail.height}px · uploaded ${when(detail.uploadedAt)}` : " "}
+            {row?.part && (
+              <>
+                {" · "}
+                <a href={`/api/image/${row.id}?size=page`} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
+                  Paragraph {row.part} of the scanned form: open full page
+                </a>
+              </>
+            )}
           </SheetDescription>
         </SheetHeader>
 

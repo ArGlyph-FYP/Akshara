@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_DAYS } from "@/lib/auth";
-import { col, db, getStudyByPublicToken } from "@/lib/data";
+import { newReaderAlias } from "@/lib/codes";
+import { col, getStudyByPublicToken } from "@/lib/data";
 import { adminAuth } from "@/lib/firebase/admin";
 import { assignPublicReader, publicLinkOpen } from "@/lib/public";
 import type { UserDoc } from "@/lib/types";
@@ -44,25 +45,20 @@ export async function POST(req: Request) {
     const name = String(body.name ?? "").trim().slice(0, 80);
     if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
     if (!body.adult || !body.consent) return NextResponse.json({ error: "You must be 18 or older and agree to take part." }, { status: 400 });
-    const counter = col.counters().doc("raters");
-    await db().runTransaction(async (tx) => {
-      const n = ((await tx.get(counter)).data()?.nextNumber as number | undefined) ?? 1;
-      const doc: UserDoc = {
-        email: String(body.contact ?? "").trim().slice(0, 120),
-        displayName: name,
-        role: "rater",
-        scripts: [study.script],
-        active: true,
-        alias: `R${String(n).padStart(2, "0")}`,
-        createdAt: Date.now(),
-        public: true,
-        nativeReader: typeof body.nativeReader === "boolean" ? body.nativeReader : null,
-        ageGroup: AGE_GROUPS.includes(String(body.ageGroup)) ? String(body.ageGroup) : null,
-        consentedAt: Date.now(),
-      };
-      tx.set(ref, doc);
-      tx.set(counter, { nextNumber: n + 1 }, { merge: true });
-    });
+    const doc: UserDoc = {
+      email: String(body.contact ?? "").trim().slice(0, 120),
+      displayName: name,
+      role: "rater",
+      scripts: [study.script],
+      active: true,
+      alias: newReaderAlias(),
+      createdAt: Date.now(),
+      public: true,
+      nativeReader: typeof body.nativeReader === "boolean" ? body.nativeReader : null,
+      ageGroup: AGE_GROUPS.includes(String(body.ageGroup)) ? String(body.ageGroup) : null,
+      consentedAt: Date.now(),
+    };
+    await ref.set(doc);
   } else if (!existing.scripts.includes(study.script)) {
     await ref.update({ scripts: [...existing.scripts, study.script] });
   }

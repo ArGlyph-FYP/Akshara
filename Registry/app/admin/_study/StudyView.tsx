@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { sampleLabel } from "@/lib/codes";
 import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Study } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { addSamplesToStudy, deleteStudy, removeReader, removeSamplesFromStudy, setStudyStatus, updateStudy } from "./actions";
@@ -50,7 +51,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
     [data.criteria, study.rubricVersion],
   );
   const name = (uid: string) => reader[uid]?.name ?? "Removed reader";
-  const code = (sid: string) => (sample[sid] ? `${sample[sid].code}${sample[sid].pageNo > 1 ? ` p${sample[sid].pageNo}` : ""}` : "Removed sample");
+  const code = (sid: string) => (sample[sid] ? sampleLabel(sample[sid]) : "Removed sample");
 
   const done = data.items.filter((i) => i.status === "done");
   const pct = data.items.length ? Math.round((100 * done.length) / data.items.length) : 0;
@@ -277,7 +278,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
               const avg = its.length ? its.reduce((a, i) => a + i.rating!.overall, 0) / its.length : null;
               return (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <Thumb id={s.id} className="h-12 w-9 shrink-0 rounded" />
+                  <Thumb id={s.id} className="h-12 w-9 shrink-0 rounded" contain={!!s.part} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 font-mono font-medium">
                       {code(s.id)}

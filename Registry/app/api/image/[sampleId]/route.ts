@@ -22,9 +22,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ sampleId
   if (!allowed) return new Response("Forbidden", { status: 403 });
 
   // ?size=thumb serves the small preview when one exists (grids), else the full scan.
-  const wantThumb = new URL(req.url).searchParams.get("size") === "thumb";
-  const path = wantThumb && sample.thumbPath ? sample.thumbPath : sample.imagePath;
-  const contentType = path === sample.thumbPath ? "image/jpeg" : sample.contentType;
+  // ?size=page serves the whole form page a paragraph was cut from (admins only).
+  const size = new URL(req.url).searchParams.get("size");
+  const isAdmin = session.kind === "staff" && session.user.role === "admin";
+  if (size === "page" && (!isAdmin || !sample.sourcePath)) return new Response("Not found", { status: 404 });
+  const path =
+    size === "page" ? sample.sourcePath! : size === "thumb" && sample.thumbPath ? sample.thumbPath : sample.imagePath;
+  const contentType = path === sample.thumbPath || path === sample.sourcePath ? "image/jpeg" : sample.contentType;
 
   // In production, hand the browser a short-lived signed URL instead of piping the scan through
   // this function (serverless platforms cap response bodies at ~4.5 MB). The path has no participant code.

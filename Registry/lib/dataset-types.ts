@@ -7,6 +7,8 @@ export interface SampleRow {
   id: string;
   code: string;
   pageNo: number;
+  /** Paragraph number for split forms; null for whole pages. */
+  part: number | null;
   phase: Phase;
   status: SampleStatus;
   isAnchor: boolean;

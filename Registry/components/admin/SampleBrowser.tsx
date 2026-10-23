@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sampleLabel } from "@/lib/codes";
 import { QC_LABEL, RATING_LABEL, type RatingState, type SampleRow, type StudyRef } from "@/lib/dataset-types";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export function applyFilters(rows: SampleRow[], f: Filters): SampleRow[] {
   const q = f.q.trim().toUpperCase().replace(/\s+/g, "");
   return rows.filter(
     (r) =>
-      (!q || r.code.replace("-", "").includes(q.replace("-", "")) || r.id.includes(f.q.trim())) &&
+      (!q || sampleLabel(r).replace(/[-\s]/g, "").includes(q.replace(/-/g, "")) || r.id.includes(f.q.trim())) &&
       (f.phase === "all" || r.phase === f.phase) &&
       (f.qc === "all" || r.status === f.qc) &&
       (f.rating === "all" || r.rating === f.rating) &&
@@ -183,10 +184,9 @@ export function SampleGrid({
             {onToggle && (
               <Checkbox checked={selected?.has(r.id)} onCheckedChange={() => onToggle(r.id)} onClick={(e) => e.stopPropagation()} />
             )}
-            <Thumb id={r.id} className="h-12 w-9 rounded" />
+            <Thumb id={r.id} className="h-12 w-9 rounded" contain={!!r.part} />
             <span className="w-24 font-mono font-medium">
-              {r.code}
-              {r.pageNo > 1 && <span className="text-muted-foreground"> p{r.pageNo}</span>}
+              {sampleLabel(r)}
             </span>
             <span className="w-14 text-xs text-muted-foreground">{r.phase}</span>
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", QC_TONE[r.status])}>{QC_LABEL[r.status]}</span>
@@ -215,13 +215,13 @@ export function SampleGrid({
               )}
               onClick={() => onOpen?.(r)}
             >
-              <Thumb id={r.id} className="aspect-[1/1.3] w-full" />
+              <Thumb id={r.id} className="aspect-[1/1.3] w-full" contain={!!r.part} />
               {onToggle && (
                 <div
                   className={cn("absolute top-2 left-2 rounded-md bg-card/90 p-1 shadow-xs transition", !isSel && "opacity-0 group-hover:opacity-100", selected && selected.size > 0 && "opacity-100")}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Checkbox checked={isSel} onCheckedChange={() => onToggle(r.id)} aria-label={`Select ${r.code}`} />
+                  <Checkbox checked={isSel} onCheckedChange={() => onToggle(r.id)} aria-label={`Select ${sampleLabel(r)}`} />
                 </div>
               )}
               {r.isAnchor && (
@@ -232,8 +232,7 @@ export function SampleGrid({
               <div className="space-y-1.5 border-t px-2.5 py-2">
                 <div className="flex items-center justify-between gap-1">
                   <span className="font-mono text-sm font-medium">
-                    {r.code}
-                    {r.pageNo > 1 && <span className="text-muted-foreground"> p{r.pageNo}</span>}
+                    {sampleLabel(r)}
                   </span>
                   <RatingDot row={r} />
                 </div>
@@ -256,7 +255,8 @@ export function SampleGrid({
   );
 }
 
-export function Thumb({ id, className }: { id: string; className?: string }) {
+/** `contain` fits the whole image (wide paragraph crops); otherwise the top of the page fills the box. */
+export function Thumb({ id, className, contain }: { id: string; className?: string; contain?: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
     <div className={cn("overflow-hidden bg-muted", className)}>
@@ -266,7 +266,7 @@ export function Thumb({ id, className }: { id: string; className?: string }) {
         </div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/image/${id}?size=thumb`} alt="" loading="lazy" onError={() => setFailed(true)} className="h-full w-full object-cover object-top" />
+        <img src={`/api/image/${id}?size=thumb`} alt="" loading="lazy" onError={() => setFailed(true)} className={cn("h-full w-full", contain ? "bg-white object-contain" : "object-cover object-top")} />
       )}
     </div>
   );

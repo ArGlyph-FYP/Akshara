@@ -1,5 +1,6 @@
 import "server-only";
-import { getSettings, listAssignments, listCriteria, listRatings, listSamples, listStudies, listUsers } from "@/lib/data";
+import { compareSamples } from "@/lib/codes";
+import { col, getSamplesByIds, getSettings, getUsersByIds, listAssignments, listCriteria, listRatings, listStudies } from "@/lib/data";
 import { surveyStatus, type SurveyStatus } from "./status";
 import { datasetRows } from "@/lib/dataset";
 import type { SampleRow, StudyRef } from "@/lib/dataset-types";
@@ -49,7 +50,7 @@ export interface StudyPageData {
   refs: StudyRef[];
   criteria: Criterion[];
   rubricVersion: number;
-  samples: { id: string; code: string; pageNo: number; isAnchor: boolean }[];
+  samples: { id: string; code: string; pageNo: number; part: number | null; isAnchor: boolean }[];
   readers: ReaderInfo[];
   items: ItemInfo[];
 }
@@ -68,23 +69,30 @@ export interface SurveySummary {
 
 /** Every survey of one type for the list screen, newest first, with reader and response counts. */
 export async function loadSurveyList(script: Script, type: StudyType): Promise<SurveySummary[]> {
-  const [studies, assignments] = await Promise.all([listStudies(script), listAssignments({ script })]);
-  return studies
-    .filter((s) => s.type === type)
-    .map((s) => {
-      const items = assignments.filter((a) => a.studyId === s.id);
+  const studies = (await listStudies(script)).filter((s) => s.type === type);
+  const count = async (q: FirebaseFirestore.Query) => (await q.count().get()).data().count;
+  return Promise.all(
+    studies.map(async (s) => {
+      const items = col.assignments().where("studyId", "==", s.id);
+      const [total, done, readers] = await Promise.all([
+        count(items),
+        count(items.where("status", "==", "done")),
+        // Every reader's queue starts at position 0, so this counts readers.
+        count(items.where("position", "==", 0)),
+      ]);
       return {
         id: s.id,
         title: s.title,
         token: s.publicToken ?? null,
         status: surveyStatus(s),
         samples: s.sampleIds.length,
-        readers: new Set(items.map((a) => a.raterId)).size,
-        done: items.filter((a) => a.status === "done").length,
-        total: items.length,
+        readers,
+        done,
+        total,
         createdAt: s.createdAt,
       };
-    });
+    }),
+  );
 }
 
 /** One survey's page (with `id`), or the "new survey" screen (without). */
@@ -109,25 +117,23 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
   };
   if (!study) return { ...base, samples: [], readers: [], items: [] };
 
-  const [assignments, ratings, samples, users] = await Promise.all([
+  const [assignments, ratings, samples] = await Promise.all([
     listAssignments({ studyId: study.id }),
     listRatings({ studyId: study.id }),
-    listSamples({ script }),
-    listUsers(),
+    getSamplesByIds(study.sampleIds),
   ]);
-  const inStudy = new Set(study.sampleIds);
   const ratingByAssignment = new Map(ratings.map((r) => [r.assignmentId, r]));
   const readerIds = new Set(assignments.map((a) => a.raterId));
+  const users = await getUsersByIds([...readerIds]);
   const firstItem = new Map<string, number>();
   for (const a of assignments) firstItem.set(a.raterId, Math.min(firstItem.get(a.raterId) ?? Infinity, a.createdAt));
 
   return {
     ...base,
     samples: samples
-      .filter((s) => inStudy.has(s.id))
-      .map((s) => ({ id: s.id, code: s.participantCode, pageNo: s.pageNo, isAnchor: s.isAnchor })),
+      .sort(compareSamples)
+      .map((s) => ({ id: s.id, code: s.participantCode, pageNo: s.pageNo, part: s.part ?? null, isAnchor: s.isAnchor })),
     readers: users
-      .filter((u) => readerIds.has(u.uid))
       .map((u) => ({
         uid: u.uid,
         name: u.displayName || u.email,
