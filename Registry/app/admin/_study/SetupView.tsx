@@ -111,7 +111,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
               {picked.slice(0, 48).map((r) => (
                 <div key={r.id} className="space-y-1">
-                  <Thumb id={r.id} className="aspect-[3/4] rounded-md border" contain={!!r.part} />
+                  <Thumb id={r.id} v={r.imageV} className="aspect-[3/4] rounded-md border" contain={!!r.part} />
                   <div className="truncate text-center font-mono text-[11px] text-muted-foreground">{sampleLabel(r)}</div>
                 </div>
               ))}

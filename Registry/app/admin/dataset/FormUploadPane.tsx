@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
+import { formatCode, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
 import type { Box } from "@/lib/form-split";
 import { SCRIPT_LABEL, type Phase, type Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,8 @@ import type { Known } from "./UploadDialog";
 interface PageRow extends FormPage {
   code: string;
   parts: [Box, Box];
-  /** The admin has opened this page, so the code and boxes were looked at. */
-  seen: boolean;
+  /** The code is a suggestion (next free number after the page before); turns off once the admin types one. */
+  auto: boolean;
   state: "ready" | "uploading" | "done" | "error";
   message?: string;
   /** Kept across retries so a failed upload doesn't store the page twice or redo finished paragraphs. */
@@ -32,21 +32,23 @@ const PARTS = [1, 2] as const;
 export function FormUploadPane({
   script,
   known,
-  register,
-  replace,
+  scanned,
   phase,
   busy,
   setBusy,
   onUploaded,
+  onPendingChange,
 }: {
   script: Script;
   known: Known;
-  register: boolean;
-  replace: boolean;
+  /** Codes that already have samples, so suggestions skip them. */
+  scanned: string[];
   phase: Phase;
   busy: boolean;
   setBusy: (b: boolean) => void;
   onUploaded: () => void;
+  /** Number of pages not uploaded yet, so the dialog can warn before they're thrown away. */
+  onPendingChange?: (n: number) => void;
 }) {
   const [pages, setPages] = useState<PageRow[]>([]);
   const [current, setCurrent] = useState<string | null>(null);
@@ -58,7 +60,31 @@ export function FormUploadPane({
   const urls = useRef<string[]>([]);
   useEffect(() => () => urls.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
-  const update = (key: string, patch: Partial<PageRow>) => setPages((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+  const codeOf = (p: PageRow) => parseFormCode(p.code, script);
+  const hasScans = new Set(scanned);
+  /** Codes a suggestion must not land on. */
+  const blocked = (code: string) => hasScans.has(code) || !!known[code]?.withdrawn || (!!known[code] && !known[code].consent);
+
+  /** Gives every page still on a suggested code the next free code after the page before it. */
+  function renumber(list: PageRow[]): PageRow[] {
+    const fixed = new Set(list.filter((p) => !p.auto).map(codeOf).filter(Boolean));
+    const nums = scanned.map((c) => normaliseCode(c)).filter((n) => n?.script === script).map((n) => n!.number);
+    let last = nums.length ? Math.max(...nums) : 0;
+    return list.map((p) => {
+      if (p.auto) {
+        let n = last + 1;
+        while (blocked(formatCode(script, n)) || fixed.has(formatCode(script, n))) n++;
+        const code = formatCode(script, n);
+        if (p.code !== code) p = { ...p, code };
+      }
+      const n = normaliseCode(codeOf(p) ?? "");
+      if (n?.script === script) last = n.number;
+      return p;
+    });
+  }
+
+  const update = (key: string, patch: Partial<PageRow>) =>
+    setPages((prev) => renumber(prev.map((p) => (p.key === key ? { ...p, ...patch } : p))));
 
   async function addFiles(list: FileList | File[]) {
     const files = Array.from(list);
@@ -69,7 +95,7 @@ export function FormUploadPane({
         const loaded = await loadFormPages(file);
         for (const p of loaded) {
           urls.current.push(p.url);
-          added.push({ ...p, code: "", parts: p.layout.parts, seen: false, state: "ready", partsDone: [] });
+          added.push({ ...p, code: "", parts: p.layout.parts, auto: true, state: "ready", partsDone: [] });
         }
       } catch (e) {
         toast.error(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -78,36 +104,22 @@ export function FormUploadPane({
     setReading(null);
     if (!added.length) return;
     setPages((prev) => {
-      const seen = new Set(prev.map((p) => p.key));
-      return [...prev, ...added.filter((p) => !seen.has(p.key))];
+      const have = new Set(prev.map((p) => p.key));
+      return renumber([...prev, ...added.filter((p) => !have.has(p.key))]);
     });
-    if (!current) open(added[0].key, [...pages, ...added]);
+    if (!current) setCurrent(added[0].key);
   }
 
-  /** Opens a page; a new page gets the next code after the one before it, for the admin to confirm. */
-  function open(key: string, list = pages) {
+  function open(key: string) {
     setCurrent(key);
-    const i = list.findIndex((p) => p.key === key);
-    const p = list[i];
-    if (!p || p.seen) return;
-    let code = p.code;
-    if (!code) {
-      const prev = list.slice(0, i).reverse().find((o) => parseFormCode(o.code, script));
-      const n = prev && normaliseCode(parseFormCode(prev.code, script)!);
-      if (n) code = parseFormCode(String(n.number + 1), n.script) ?? "";
-    }
-    setPages((all) => all.map((o) => (o.key === key ? { ...o, seen: true, code } : o)));
     requestAnimationFrame(() => codeInput.current?.select());
   }
 
-  const codeOf = (p: PageRow) => parseFormCode(p.code, script);
-
   function problem(p: PageRow): string | null {
     const code = codeOf(p);
-    if (!p.seen) return "Not checked yet";
     if (!code) return "Type the code";
     const k = known[code];
-    if (!k && !register) return "New code: tick 'register new codes'";
+    if (hasScans.has(code) && !p.partsDone.length) return `${code} already uploaded`;
     if (k?.withdrawn) return "Writer withdrew";
     if (k && !k.consent) return "Consent not recorded";
     if (pages.filter((o) => codeOf(o) === code && o.state !== "done").length > 1) return "Same code on two pages";
@@ -117,6 +129,7 @@ export function FormUploadPane({
   const pending = pages.filter((p) => p.state === "ready" || p.state === "error");
   const ready = pending.filter((p) => !problem(p));
   const done = pages.filter((p) => p.state === "done").length;
+  useEffect(() => onPendingChange?.(pending.length), [pending.length, onPendingChange]);
   const page = pages.find((p) => p.key === current) ?? null;
   const pageIdx = page ? pages.indexOf(page) : -1;
 
@@ -132,7 +145,7 @@ export function FormUploadPane({
   function remove(key: string) {
     const p = pages.find((o) => o.key === key);
     if (p) URL.revokeObjectURL(p.url);
-    const rest = pages.filter((o) => o.key !== key);
+    const rest = renumber(pages.filter((o) => o.key !== key));
     setPages(rest);
     if (current === key) setCurrent(rest[Math.min(pageIdx, rest.length - 1)]?.key ?? null);
   }
@@ -163,8 +176,8 @@ export function FormUploadPane({
             size: crop.blob.size,
             width: crop.width,
             height: crop.height,
-            register,
-            replace,
+            register: true,
+            replace: false,
             phase,
           },
           crop.blob,
@@ -183,7 +196,7 @@ export function FormUploadPane({
     setBusy(true);
     let ok = 0;
     for (const p of ready) {
-      update(p.key, { state: "uploading", message: undefined });
+      update(p.key, { state: "uploading", message: undefined, auto: false, code: codeOf(p)! });
       try {
         await uploadOne(p);
         ok++;
@@ -252,7 +265,9 @@ export function FormUploadPane({
                   className={cn("block w-full border-b px-3 py-2 text-left text-sm last:border-0 hover:bg-muted/50", p.key === current && "bg-brand-soft")}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono font-medium">{c ?? <span className="text-muted-foreground">Page {i + 1}</span>}</span>
+                    <span className={cn("font-mono font-medium", p.auto && "text-muted-foreground")}>
+                      {c ?? <span className="text-muted-foreground">Page {i + 1}</span>}
+                    </span>
                     {p.state === "done" && <CheckCircle2 className="size-4 text-success" />}
                     {p.state === "uploading" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
                   </div>
@@ -267,7 +282,10 @@ export function FormUploadPane({
                     </div>
                   )}
                   {!prob && p.state === "ready" && (
-                    <div className="mt-0.5 text-xs text-muted-foreground">{p.layout.confidence === "check" ? "Ready · auto-split was unsure" : "Ready"}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {p.auto ? "Suggested code" : "Ready"}
+                      {p.layout.confidence === "check" && " · split unsure"}
+                    </div>
                   )}
                 </button>
               );
@@ -275,21 +293,23 @@ export function FormUploadPane({
           </div>
 
           {page && (
-            <div className="flex min-w-0 gap-4">
-              <BoxEditor
-                key={page.key}
-                src={page.url}
-                aspect={page.width / page.height}
-                boxes={page.parts}
-                labels={PARTS.map((n) => `${code ?? "?"}-${n}`)}
-                onChange={(i, box) => {
-                  if (locked) return;
-                  const parts = [...page.parts] as [Box, Box];
-                  parts[i] = box;
-                  update(page.key, { parts });
-                }}
-                className="h-[62vh] shrink-0"
-              />
+            <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+              <div className="mx-auto shrink-0 lg:mx-0" style={{ width: `min(100%, calc(62vh * ${page.width / page.height}))` }}>
+                <BoxEditor
+                  key={page.key}
+                  src={page.url}
+                  aspect={page.width / page.height}
+                  boxes={page.parts}
+                  labels={PARTS.map((n) => `${code ?? "?"}-${n}`)}
+                  onChange={(i, box) => {
+                    if (locked) return;
+                    const parts = [...page.parts] as [Box, Box];
+                    parts[i] = box;
+                    update(page.key, { parts });
+                  }}
+                  className="w-full"
+                />
+              </div>
 
               <div className="min-w-0 flex-1 space-y-4 text-sm">
                 <div className="space-y-1.5">
@@ -302,7 +322,7 @@ export function FormUploadPane({
                     value={page.code}
                     placeholder={`${script === "ta" ? "TA" : "SI"}-001`}
                     disabled={locked}
-                    onChange={(e) => update(page.key, { code: e.target.value })}
+                    onChange={(e) => update(page.key, { code: e.target.value, auto: false })}
                     onBlur={() => {
                       if (code) update(page.key, { code });
                     }}
@@ -314,8 +334,9 @@ export function FormUploadPane({
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Type what&apos;s written in the box: <span className="font-mono">S001</span>, <span className="font-mono">1</span> or{" "}
-                    <span className="font-mono">SI-001</span> all work ({SCRIPT_LABEL[script]} unless it says TA/SI). Press Enter for the next page.
+                    {page.auto ? "Suggested: the next free code. " : ""}
+                    If the paper says something else, type it: <span className="font-mono">S001</span>, <span className="font-mono">1</span> or{" "}
+                    <span className="font-mono">SI-001</span> all work ({SCRIPT_LABEL[script]} unless it says TA/SI). Later pages renumber to follow.
                   </p>
                 </div>
 
@@ -366,15 +387,30 @@ export function FormUploadPane({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <span className="text-xs text-muted-foreground">
-          {pages.length > 0 && `${done} uploaded · ${ready.length} ready · ${pending.length - ready.length} need attention`}
-        </span>
-        <Button onClick={uploadAll} disabled={busy || ready.length === 0}>
-          {busy ? <Loader2 className="animate-spin" /> : <Upload />}
-          {busy ? "Uploading…" : ready.length ? `Upload ${ready.length} form${ready.length === 1 ? "" : "s"} (${ready.length * 2} samples)` : "Upload"}
-        </Button>
-      </div>
+      {pages.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+          <div className="space-y-0.5 text-xs text-muted-foreground">
+            <div>
+              {done} uploaded · {ready.length} ready
+              {pending.length > ready.length && ` · ${pending.length - ready.length} skipped (see list)`}
+            </div>
+            <div>
+              By uploading you confirm consent forms were received for these writers. Wrong code or box? Fix it later from the sample&apos;s
+              panel.
+            </div>
+          </div>
+          <Button onClick={uploadAll} disabled={busy || ready.length === 0}>
+            {busy ? <Loader2 className="animate-spin" /> : <Upload />}
+            {busy
+              ? "Uploading…"
+              : ready.length
+                ? `Agree & upload ${ready.length} form${ready.length === 1 ? "" : "s"}`
+                : pending.length
+                  ? "Fix the pages marked in the list"
+                  : "All uploaded"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

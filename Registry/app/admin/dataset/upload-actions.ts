@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { run } from "@/lib/action";
+import { run, str } from "@/lib/action";
 import { assertAdmin } from "@/lib/auth";
-import { newId, newWriterId, normaliseCode, sampleLabel } from "@/lib/codes";
-import { col, db } from "@/lib/data";
+import { newId, newWriterId, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
+import { col, db, getSample } from "@/lib/data";
 import { ACCEPTED_TYPES } from "@/lib/filenames";
 import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
 import { SCRIPTS, type Participant, type Phase, type Sample, type Script } from "@/lib/types";
@@ -74,6 +74,34 @@ async function check(meta: ScanMeta) {
   return { ext, parsed, pageNo, part, crop, pageId, participant, old };
 }
 
+/** Returns the writer for a code, registering it first if needed (the uploader has confirmed consent). */
+async function ensureParticipant(parsed: { code: string; script: Script; number: number }, phase: Phase, by: string): Promise<Participant> {
+  const pRef = col.participants().doc(parsed.code);
+  const found = (await pRef.get()).data() as Participant | undefined;
+  if (found) return found;
+  const participant: Participant = {
+    code: parsed.code,
+    script: parsed.script,
+    phase: phase === "pilot" ? "pilot" : "main",
+    consentReceivedAt: Date.now(),
+    consentVerifiedBy: by,
+    status: "active",
+    withdrawnAt: null,
+    writerId: newWriterId(),
+    notes: AUTO_NOTE,
+    createdAt: Date.now(),
+  };
+  await db().runTransaction(async (tx) => {
+    const counterRef = col.counters().doc(parsed.script);
+    const next = ((await tx.get(counterRef)).data()?.nextNumber as number | undefined) ?? 1;
+    tx.set(pRef, participant);
+    if (parsed.number >= next) tx.set(counterRef, { nextNumber: parsed.number + 1 }, { merge: true });
+  });
+  return participant;
+}
+
+const AUTO_NOTE = "Registered during bulk upload";
+
 /** After the file is in Storage: registers the code if asked, replaces the old page, writes the sample. */
 async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
   const { ext, parsed, pageNo, part, crop, pageId, old } = await check(meta);
@@ -88,29 +116,7 @@ async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
     if (!hasPage) throw new Error("The original page did not reach storage; try again");
   }
 
-  const pRef = col.participants().doc(parsed.code);
-  let participant = (await pRef.get()).data() as Participant | undefined;
-  if (!participant) {
-    participant = {
-      code: parsed.code,
-      script: parsed.script,
-      phase: meta.phase === "pilot" ? "pilot" : "main",
-      consentReceivedAt: Date.now(),
-      consentVerifiedBy: uploadedBy,
-      status: "active",
-      withdrawnAt: null,
-      writerId: newWriterId(),
-      notes: "Registered during bulk upload",
-      createdAt: Date.now(),
-    };
-    const p = participant;
-    await db().runTransaction(async (tx) => {
-      const counterRef = col.counters().doc(parsed.script);
-      const next = ((await tx.get(counterRef)).data()?.nextNumber as number | undefined) ?? 1;
-      tx.set(pRef, p);
-      if (parsed.number >= next) tx.set(counterRef, { nextNumber: parsed.number + 1 }, { merge: true });
-    });
-  }
+  const participant = await ensureParticipant(parsed, meta.phase, uploadedBy);
 
   if (old) {
     for (const key of ["imagePath", "thumbPath"] as const) {
@@ -245,5 +251,150 @@ export async function uploadPageDirect(script: Script, pageId: string, fd: FormD
     await adminBucket()
       .file(pagePathFor(script, pageId))
       .save(Buffer.from(await file.arrayBuffer()), { contentType: "image/jpeg", resumable: false });
+  });
+}
+
+/* ---------- Fixing a split form after upload ---------- */
+
+/**
+ * Moves a form page to another code (both paragraphs move together, since they share the page).
+ * Ratings point at the sample, not the code, so they stay valid. A writer that was only created by the
+ * wrong guess during upload, and now has no samples, is removed again.
+ */
+export async function changeFormCode(_: unknown, fd: FormData) {
+  return run(async () => {
+    const s = await assertAdmin();
+    const sample = await getSample(str(fd, "id"));
+    if (!sample) throw new Error("Sample not found");
+    const target = parseFormCode(str(fd, "code"), sample.script);
+    const parsed = target ? normaliseCode(target) : null;
+    if (!parsed) throw new Error("Type a code like SI-012");
+    if (parsed.script !== sample.script) throw new Error(`Use a ${sample.script === "si" ? "SI" : "TA"} code`);
+    const from = sample.participantCode;
+    if (parsed.code === from) return "Code unchanged";
+
+    const group = sample.sourcePath
+      ? (await col.samples().where("sourcePath", "==", sample.sourcePath).get()).docs
+      : [await col.samples().doc(sample.id).get()];
+    const taken = (await col.samples().where("participantCode", "==", parsed.code).get()).docs.map((d) => d.data());
+    for (const d of group) {
+      const x = d.data();
+      if (!x) continue;
+      const clash = taken.some((t) => t.pageNo === x.pageNo && ((t.part as number | null | undefined) ?? null) === (x.part ?? null));
+      if (clash) throw new Error(`${sampleLabel({ code: parsed.code, pageNo: x.pageNo, part: x.part })} already exists`);
+    }
+
+    const existing = (await col.participants().doc(parsed.code).get()).data() as Participant | undefined;
+    if (existing?.status === "withdrawn") throw new Error(`${parsed.code} has withdrawn`);
+    if (existing && !existing.consentReceivedAt) throw new Error(`Consent not recorded for ${parsed.code}`);
+    const participant = await ensureParticipant(parsed, sample.phase, s.user.email);
+
+    const batch = db().batch();
+    for (const d of group) {
+      batch.update(d.ref, { participantCode: parsed.code, writerId: participant.writerId, phase: participant.phase });
+    }
+    await batch.commit();
+
+    const oldRef = col.participants().doc(from);
+    const old = (await oldRef.get()).data() as Participant | undefined;
+    if (old?.notes === AUTO_NOTE) {
+      const left = await col.samples().where("participantCode", "==", from).limit(1).get();
+      if (left.empty) await oldRef.delete();
+    }
+    revalidatePath("/admin/dataset");
+    return `Moved to ${parsed.code}`;
+  });
+}
+
+/** A paragraph's box can only change while nobody has rated it. */
+async function recropTarget(id: string) {
+  const sample = await getSample(id);
+  if (!sample) throw new Error("Sample not found");
+  if (!sample.sourcePath) throw new Error("This sample has no original page to cut from");
+  const rated = await col.ratings().where("sampleId", "==", id).limit(1).get();
+  if (!rated.empty) throw new Error("Already rated, so the paragraph can't be re-cut");
+  return sample;
+}
+
+/** Step 1 of re-cutting: where to read the page from, and where to put the new crop. */
+export async function prepareRecrop(
+  id: string,
+): Promise<{ error?: string; pageUrl?: string; newId?: string; url?: string; thumbUrl?: string; direct?: boolean }> {
+  try {
+    await assertAdmin();
+    const sample = await recropTarget(id);
+    const newImage = newId();
+    if (storageEmulated()) return { newId: newImage, direct: true };
+    const expires = Date.now() + 15 * 60 * 1000;
+    const bucket = adminBucket();
+    const [[pageUrl], [url], [thumbUrl]] = await Promise.all([
+      bucket.file(sample.sourcePath!).getSignedUrl({ version: "v4", action: "read", expires }),
+      bucket.file(`scans/${sample.script}/${newImage}.jpg`).getSignedUrl({ version: "v4", action: "write", expires, contentType: "image/jpeg" }),
+      bucket.file(thumbPathFor(sample.script, newImage)).getSignedUrl({ version: "v4", action: "write", expires, contentType: "image/jpeg" }),
+    ]);
+    return { pageUrl, newId: newImage, url, thumbUrl };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export interface RecropMeta {
+  crop: { x: number; y: number; w: number; h: number };
+  width: number;
+  height: number;
+}
+
+async function finishRecrop(id: string, newImage: string, meta: RecropMeta) {
+  if (!ID_RE.test(newImage)) throw new Error("Bad upload id");
+  const sample = await recropTarget(id);
+  const { crop } = cleanPart({ crop: meta.crop } as ScanMeta);
+  if (!crop) throw new Error("Bad crop box");
+  if (!(meta.width > 0 && meta.height > 0)) throw new Error("Could not read the image size");
+  const bucket = adminBucket();
+  const imagePath = `scans/${sample.script}/${newImage}.jpg`;
+  const [exists] = await bucket.file(imagePath).exists();
+  if (!exists) throw new Error("Upload did not reach storage; try again");
+  const thumbPath = thumbPathFor(sample.script, newImage);
+  const [hasThumb] = await bucket.file(thumbPath).exists();
+  await col.samples().doc(id).update({
+    imagePath,
+    thumbPath: hasThumb ? thumbPath : null,
+    contentType: "image/jpeg",
+    crop,
+    width: Math.round(meta.width),
+    height: Math.round(meta.height),
+    editedAt: Date.now(),
+  });
+  for (const p of [sample.imagePath, sample.thumbPath]) {
+    if (p && p !== imagePath && p !== thumbPath) await bucket.file(p).delete({ ignoreNotFound: true });
+  }
+  revalidatePath("/admin/dataset");
+}
+
+/** Step 2 of re-cutting, after the browser's PUT succeeded. */
+export async function completeRecrop(id: string, newImage: string, meta: RecropMeta) {
+  return run(async () => {
+    await assertAdmin();
+    await finishRecrop(id, newImage, meta);
+  });
+}
+
+/** Emulator only: the new crop comes through the server action. */
+export async function recropDirect(id: string, newImage: string, meta: RecropMeta, fd: FormData) {
+  return run(async () => {
+    await assertAdmin();
+    if (!storageEmulated()) throw new Error("Direct upload is only for the local emulator");
+    if (!ID_RE.test(newImage)) throw new Error("Bad upload id");
+    const sample = await recropTarget(id);
+    const file = fd.get("file");
+    if (!(file instanceof File)) throw new Error("No file");
+    if (file.size > MAX_BYTES) throw new Error("File must be under 25 MB");
+    const bucket = adminBucket();
+    await bucket.file(`scans/${sample.script}/${newImage}.jpg`).save(Buffer.from(await file.arrayBuffer()), { contentType: "image/jpeg", resumable: false });
+    const thumb = fd.get("thumb");
+    if (thumb instanceof File) {
+      await bucket.file(thumbPathFor(sample.script, newImage)).save(Buffer.from(await thumb.arrayBuffer()), { contentType: "image/jpeg", resumable: false });
+    }
+    await finishRecrop(id, newImage, meta);
   });
 }

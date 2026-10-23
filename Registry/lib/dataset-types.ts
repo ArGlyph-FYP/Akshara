@@ -14,6 +14,8 @@ export interface SampleRow {
   isAnchor: boolean;
   writerId: string;
   uploadedAt: number;
+  /** Changes when the image is re-cut, so browsers fetch the new one. */
+  imageV: number;
   assigned: number;
   done: number;
   rating: RatingState;

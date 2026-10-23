@@ -184,7 +184,7 @@ export function SampleGrid({
             {onToggle && (
               <Checkbox checked={selected?.has(r.id)} onCheckedChange={() => onToggle(r.id)} onClick={(e) => e.stopPropagation()} />
             )}
-            <Thumb id={r.id} className="h-12 w-9 rounded" contain={!!r.part} />
+            <Thumb id={r.id} v={r.imageV} className="h-12 w-9 rounded" contain={!!r.part} />
             <span className="w-24 font-mono font-medium">
               {sampleLabel(r)}
             </span>
@@ -215,7 +215,7 @@ export function SampleGrid({
               )}
               onClick={() => onOpen?.(r)}
             >
-              <Thumb id={r.id} className="aspect-[1/1.3] w-full" contain={!!r.part} />
+              <Thumb id={r.id} v={r.imageV} className="aspect-[1/1.3] w-full" contain={!!r.part} />
               {onToggle && (
                 <div
                   className={cn("absolute top-2 left-2 rounded-md bg-card/90 p-1 shadow-xs transition", !isSel && "opacity-0 group-hover:opacity-100", selected && selected.size > 0 && "opacity-100")}
@@ -256,7 +256,7 @@ export function SampleGrid({
 }
 
 /** `contain` fits the whole image (wide paragraph crops); otherwise the top of the page fills the box. */
-export function Thumb({ id, className, contain }: { id: string; className?: string; contain?: boolean }) {
+export function Thumb({ id, v, className, contain }: { id: string; v?: number; className?: string; contain?: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
     <div className={cn("overflow-hidden bg-muted", className)}>
@@ -266,7 +266,7 @@ export function Thumb({ id, className, contain }: { id: string; className?: stri
         </div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={`/api/image/${id}?size=thumb`} alt="" loading="lazy" onError={() => setFailed(true)} className={cn("h-full w-full", contain ? "bg-white object-contain" : "object-cover object-top")} />
+        <img src={`/api/image/${id}?size=thumb${v ? `&v=${v}` : ""}`} alt="" loading="lazy" onError={() => setFailed(true)} className={cn("h-full w-full", contain ? "bg-white object-contain" : "object-cover object-top")} />
       )}
     </div>
   );

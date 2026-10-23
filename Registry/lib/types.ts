@@ -69,6 +69,8 @@ export interface Sample {
   anchorScores: { overall: number | null; legibility: number | null; note: string } | null;
   uploadedAt: number;
   uploadedBy: string;
+  /** When the paragraph was re-cut after upload (changes the image, so cached copies must be refreshed). */
+  editedAt?: number | null;
 }
 
 export type Level = "akshara" | "word" | "line" | "paragraph";

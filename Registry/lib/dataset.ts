@@ -34,6 +34,7 @@ export async function datasetRows(script: Script): Promise<{ rows: SampleRow[]; 
       isAnchor: s.isAnchor,
       writerId: s.writerId,
       uploadedAt: s.uploadedAt,
+      imageV: s.editedAt ?? s.uploadedAt,
       assigned: c.assigned,
       done: c.done,
       rating,

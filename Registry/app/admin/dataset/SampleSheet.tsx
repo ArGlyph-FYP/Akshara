@@ -1,8 +1,9 @@
 "use client";
 
-import { Anchor, Check, Loader2, RotateCcw, X } from "lucide-react";
+import { Anchor, Check, Crop, Loader2, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ImageAnnotator } from "@/components/ImageAnnotator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { act } from "@/lib/client-action";
 import { sampleLabel } from "@/lib/codes";
 import { QC_LABEL, type SampleRow } from "@/lib/dataset-types";
+import type { Box } from "@/lib/form-split";
 import type { SampleStatus } from "@/lib/types";
+import { BoxEditor } from "./BoxEditor";
 import { sampleDetail, setAnchor, setStatus, type SampleDetail } from "./sample-actions";
+import { changeFormCode } from "./upload-actions";
+import { recropSample } from "./upload-client";
 
 const when = (t: number | null) =>
   t ? new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—";
@@ -25,12 +30,21 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
   const [detail, setDetail] = useState<SampleDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [anchor, setAnchorState] = useState({ on: false, overall: "", legibility: "", note: "" });
+  const [codeDraft, setCodeDraft] = useState("");
+  const [savingCode, setSavingCode] = useState(false);
+  /** Paragraph box being adjusted on the original page; null when not editing. */
+  const [edit, setEdit] = useState<{ box: Box; aspect: number } | null>(null);
+  const [savingBox, setSavingBox] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const current = useRef<string | null>(null);
+  current.current = row?.id ?? null;
 
   async function load(id: string) {
     setError(null);
     const d = await sampleDetail(id);
     if ("error" in d) return setError(d.error);
     setDetail(d);
+    setCodeDraft(d.code);
     setAnchorState({
       on: d.isAnchor,
       overall: d.anchorScores?.overall?.toString() ?? "",
@@ -41,6 +55,8 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
 
   useEffect(() => {
     setDetail(null);
+    setEdit(null);
+    setLoadingPage(false);
     if (row) void load(row.id);
   }, [row]);
 
@@ -52,12 +68,64 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
     }
   }
 
+  async function saveCode() {
+    if (!row) return;
+    setSavingCode(true);
+    if (await act(changeFormCode, { id: row.id, code: codeDraft })) {
+      await load(row.id);
+      router.refresh();
+    }
+    setSavingCode(false);
+  }
+
+  function startBoxEdit() {
+    if (!row || !detail?.crop) return;
+    const box = detail.crop;
+    const id = row.id;
+    setLoadingPage(true);
+    const img = new Image();
+    img.onload = () => {
+      setLoadingPage(false);
+      // Ignore a late load if the panel moved on to another sample meanwhile.
+      if (current.current === id) setEdit({ box, aspect: img.naturalWidth / img.naturalHeight });
+    };
+    img.onerror = () => {
+      setLoadingPage(false);
+      toast.error("Could not load the original page");
+    };
+    img.src = `/api/image/${row.id}?size=page`;
+  }
+
+  async function saveBox() {
+    if (!row || !edit) return;
+    setSavingBox(true);
+    try {
+      await recropSample(row.id, edit.box);
+      toast.success("Paragraph re-cut");
+      setEdit(null);
+      await load(row.id);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+    setSavingBox(false);
+  }
+
+  const label = row && sampleLabel({ code: detail?.code ?? row.code, pageNo: row.pageNo, part: row.part });
+
   return (
     <Sheet open={!!row} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-[min(1100px,96vw)]!">
+      <SheetContent
+        className="w-full gap-0 overflow-y-auto sm:max-w-[min(1100px,96vw)]!"
+        onEscapeKeyDown={(e) => {
+          // Escape leaves box editing first, instead of closing the panel and losing the edit.
+          if (edit && !savingBox) setEdit(null);
+          if (edit) e.preventDefault();
+        }}
+      >
         <SheetHeader className="border-b">
           <SheetTitle className="font-mono text-lg">
-            {row && sampleLabel(row)}
+            {label}
           </SheetTitle>
           <SheetDescription>
             {detail ? `${detail.phase} phase · ${detail.width}×${detail.height}px · uploaded ${when(detail.uploadedAt)}` : " "}
@@ -74,7 +142,35 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
 
         {row && (
           <div className="grid gap-5 p-4 lg:grid-cols-[1fr_320px]">
-            <ImageAnnotator src={`/api/image/${row.id}`} heightClass="h-[70vh]" />
+            {edit ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-full" style={{ maxWidth: `calc(66vh * ${edit.aspect})` }}>
+                  <BoxEditor
+                    src={`/api/image/${row.id}?size=page`}
+                    aspect={edit.aspect}
+                    boxes={[edit.box]}
+                    labels={[label ?? ""]}
+                    onChange={(_, box) => !savingBox && setEdit({ ...edit, box })}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button size="sm" onClick={saveBox} disabled={savingBox}>
+                    {savingBox ? <Loader2 className="animate-spin" /> : <Check />} Save new box
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setEdit(null)} disabled={savingBox}>
+                    Cancel
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Drag the box or its edges.</span>
+                </div>
+              </div>
+            ) : (
+              <ImageAnnotator
+                key={detail?.imageV ?? row.imageV}
+                src={`/api/image/${row.id}?v=${detail?.imageV ?? row.imageV}`}
+                heightClass="h-[70vh]"
+              />
+            )}
 
             <div className="space-y-5 text-sm">
               {error && <p className="text-destructive">{error}</p>}
@@ -98,6 +194,38 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                       <dd className="truncate">{detail.uploadedBy}</dd>
                     </dl>
                   </section>
+
+                  {detail.hasPage && (
+                    <section className="space-y-2 rounded-lg border p-3">
+                      <h3 className="font-medium">Fix this form</h3>
+                      <div className="space-y-1">
+                        <Label htmlFor="fix-code" className="text-xs text-muted-foreground">
+                          Participant code (moves both paragraphs of this page)
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="fix-code"
+                            className="font-mono"
+                            value={codeDraft}
+                            disabled={savingCode}
+                            onChange={(e) => setCodeDraft(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && codeDraft !== detail.code && void saveCode()}
+                          />
+                          <Button size="sm" variant="outline" className="h-9" disabled={savingCode || !codeDraft.trim() || codeDraft === detail.code} onClick={saveCode}>
+                            {savingCode && <Loader2 className="animate-spin" />} Change
+                          </Button>
+                        </div>
+                      </div>
+                      {detail.crop && (
+                        <div className="space-y-1">
+                          <Button size="sm" variant="outline" disabled={detail.rated || !!edit || loadingPage} onClick={startBoxEdit}>
+                            {loadingPage ? <Loader2 className="animate-spin" /> : <Crop />} Adjust paragraph box
+                          </Button>
+                          {detail.rated && <p className="text-xs text-muted-foreground">Already rated, so the box can&apos;t change.</p>}
+                        </div>
+                      )}
+                    </section>
+                  )}
 
                   <section className="space-y-2">
                     <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Quality check</h3>

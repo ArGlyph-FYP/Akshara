@@ -45,7 +45,7 @@ async function makeThumb(bmp: ImageBitmap): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.8));
 }
 
-export function UploadDialog({ known, script }: { known: Known; script: Script }) {
+export function UploadDialog({ known, scanned, script }: { known: Known; scanned: string[]; script: Script }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -55,6 +55,7 @@ export function UploadDialog({ known, script }: { known: Known; script: Script }
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [mode, setMode] = useState<"forms" | "images">("forms");
+  const [formsPending, setFormsPending] = useState(0);
 
   function addFiles(list: FileList | File[]) {
     const next: Row[] = Array.from(list).map((file) => {
@@ -124,6 +125,18 @@ export function UploadDialog({ known, script }: { known: Known; script: Script }
     router.refresh();
   }
 
+  const phasePicker = (
+    <Select value={phase} disabled={busy} onValueChange={(v) => setPhase(v as "main" | "pilot")}>
+      <SelectTrigger size="sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="main">Main phase</SelectItem>
+        <SelectItem value="pilot">Pilot phase</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   const options = (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
       <label className="flex items-center gap-2">
@@ -133,15 +146,7 @@ export function UploadDialog({ known, script }: { known: Known; script: Script }
       {register && (
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground">as</Label>
-          <Select value={phase} disabled={busy} onValueChange={(v) => setPhase(v as "main" | "pilot")}>
-            <SelectTrigger size="sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="main">Main phase</SelectItem>
-              <SelectItem value="pilot">Pilot phase</SelectItem>
-            </SelectContent>
-          </Select>
+          {phasePicker}
         </div>
       )}
       <label className="flex items-center gap-2">
@@ -156,7 +161,10 @@ export function UploadDialog({ known, script }: { known: Known; script: Script }
       open={open}
       onOpenChange={(o) => {
         if (busy) return;
+        // Form pages live only in this dialog, so closing it throws them away.
+        if (!o && formsPending > 0 && !window.confirm(`Close and discard ${formsPending} form page${formsPending === 1 ? "" : "s"} not uploaded yet?`)) return;
         setOpen(o);
+        if (!o) setFormsPending(0);
         if (!o) setRows((p) => p.filter((r) => r.state !== "done"));
       }}
     >
@@ -190,16 +198,18 @@ export function UploadDialog({ known, script }: { known: Known; script: Script }
             </TabsTrigger>
           </TabsList>
           <TabsContent value="forms" className="mt-3 space-y-3" forceMount hidden={mode !== "forms"}>
-            {options}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              New writers are added to {phasePicker}
+            </div>
             <FormUploadPane
               script={script}
               known={known}
-              register={register}
-              replace={replace}
+              scanned={scanned}
               phase={phase}
               busy={busy}
               setBusy={setBusy}
               onUploaded={() => router.refresh()}
+              onPendingChange={setFormsPending}
             />
           </TabsContent>
           <TabsContent value="images" className="mt-3 space-y-4">

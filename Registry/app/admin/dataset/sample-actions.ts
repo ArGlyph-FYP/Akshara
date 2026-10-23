@@ -49,6 +49,11 @@ export interface SampleDetail {
   uploadedAt: number;
   uploadedBy: string;
   consentReceivedAt: number | null;
+  /** Split forms: where this paragraph sits on the original page, if the page was kept. */
+  crop: { x: number; y: number; w: number; h: number } | null;
+  hasPage: boolean;
+  rated: boolean;
+  imageV: number;
   isAnchor: boolean;
   anchorScores: { overall: number | null; legibility: number | null; note: string } | null;
   items: {
@@ -93,6 +98,10 @@ export async function sampleDetail(id: string): Promise<SampleDetail | { error: 
       uploadedAt: sample.uploadedAt,
       uploadedBy: sample.uploadedBy,
       consentReceivedAt: (participant.data()?.consentReceivedAt as number | null) ?? null,
+      crop: sample.crop ?? null,
+      hasPage: !!sample.sourcePath,
+      rated: ratings.length > 0,
+      imageV: sample.editedAt ?? sample.uploadedAt,
       isAnchor: sample.isAnchor,
       anchorScores: sample.anchorScores,
       items: assignments.map((a) => {

@@ -122,7 +122,7 @@ export function DatasetView({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <UploadDialog known={known} script={script} />
+        <UploadDialog known={known} scanned={Object.keys(scanCount)} script={script} />
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
