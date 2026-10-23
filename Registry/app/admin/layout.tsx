@@ -2,7 +2,7 @@ import { Sidebar, type StudyBadge } from "@/components/admin/Sidebar";
 import { requireAdmin } from "@/lib/auth";
 import { col, listStudies } from "@/lib/data";
 import { currentScript } from "@/lib/script";
-import type { Study, StudyType, UserDoc } from "@/lib/types";
+import type { StudyType, UserDoc } from "@/lib/types";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const s = await requireAdmin();
@@ -12,9 +12,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     listStudies(script),
     col.users().where("role", "==", "admin").get(),
   ]);
+  // "Live" while any survey of the type is running.
   const badge = (type: StudyType): StudyBadge => {
-    const st: Study | undefined = studies.find((x) => x.type === type);
-    return !st ? null : !st.open ? "closed" : st.publicOpen ? "open" : "full";
+    const of = studies.filter((x) => x.type === type);
+    if (!of.length) return null;
+    if (of.some((x) => x.open && x.publicOpen)) return "open";
+    return of.some((x) => x.open) ? "full" : "closed";
   };
   const team = admins.docs
     .map((d) => ({ uid: d.id, ...(d.data() as UserDoc) }))

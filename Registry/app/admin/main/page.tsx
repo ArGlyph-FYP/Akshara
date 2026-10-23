@@ -10,5 +10,5 @@ export default async function MainStudyPage({ searchParams }: { searchParams: Pr
   const script = await currentScript(s.user);
   const q = await searchParams;
   const data = await loadStudyPage(script, "rubric", q.id);
-  return <StudyPage data={data} tab={q.tab === "criteria" ? "criteria" : "study"} />;
+  return <StudyPage data={data} tab={q.tab === "criteria" ? "criteria" : "study"} creating={q.new === "1"} />;
 }

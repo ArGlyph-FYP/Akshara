@@ -17,7 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { SCRIPT_LABEL, type Study } from "@/lib/types";
+import { SCRIPT_LABEL, surveyPath, type Study } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { addSamplesToStudy, deleteStudy, removeReader, removeSamplesFromStudy, setStudyStatus, updateStudy, type StudyStatus } from "./actions";
 import { COPY } from "./copy";
@@ -130,15 +130,15 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                 variant="destructive"
                 onSelect={() =>
                   ask({
-                    title: "Delete this study?",
+                    title: "Delete this survey?",
                     description: "Only possible before anyone has submitted a response. Its share link stops working.",
-                    confirmLabel: "Delete study",
+                    confirmLabel: "Delete survey",
                     destructive: true,
                     onConfirm: () => call(deleteStudy(study.id), "Study deleted"),
                   })
                 }
               >
-                <Trash2 /> Delete study
+                <Trash2 /> Delete survey
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -388,7 +388,7 @@ function Count({ n }: { n: number }) {
 function ShareCard({ study, status, invite, onReopen }: { study: Study; status: StudyStatus; invite: string; onReopen: () => void }) {
   const [origin, setOrigin] = useState("");
   useEffect(() => setOrigin(window.location.origin), []);
-  const url = study.publicToken && origin ? `${origin}/join/${study.publicToken}` : "";
+  const url = study.publicToken && origin ? `${origin}${surveyPath(study.script, study.publicToken)}` : "";
   const copyText = async (text: string, msg: string) => {
     try {
       await navigator.clipboard.writeText(text);

@@ -57,24 +57,24 @@ export function DatasetView({
     }
   }
 
-  // Studies come newest first; each script has one perception and one main study.
-  const studyOf = (type: StudyType): StudyRef | undefined => studies.find((s) => s.type === type);
+  // Studies come newest first; a script can run several surveys of each type.
+  const surveysOf = (type: StudyType): StudyRef[] => studies.filter((s) => s.type === type && s.open);
 
-  /** Adds the selection to a running study, or opens that study's setup with these samples chosen. */
-  async function addTo(type: StudyType) {
-    const study = studyOf(type);
-    if (!study) {
-      try {
-        sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, type, ids }));
-      } catch {}
-      router.push(STUDY_PATH[type]);
-      return;
-    }
+  /** Opens the setup for a new survey with the selection already chosen. */
+  function newSurvey(type: StudyType) {
+    try {
+      sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, type, ids }));
+    } catch {}
+    router.push(`${STUDY_PATH[type]}?new=1`);
+  }
+
+  /** Adds the selection to a survey that is already running. */
+  async function addTo(study: StudyRef) {
     const r = await addSamplesToStudy(study.id, ids);
     if (!r.ok) return toast.error(r.error);
-    toast.success(`Added ${r.added} sample${r.added === 1 ? "" : "s"} to the ${STUDY_LABEL[type].toLowerCase()}`, {
+    toast.success(`Added ${r.added} sample${r.added === 1 ? "" : "s"} to ${study.title}`, {
       description: "Readers who join from now on get them.",
-      action: { label: "Open", onClick: () => router.push(STUDY_PATH[type]) },
+      action: { label: "Open", onClick: () => router.push(`${STUDY_PATH[study.type]}?id=${study.id}`) },
     });
     sel.clear();
     router.refresh();
@@ -178,16 +178,29 @@ export function DatasetView({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
-                {(["perception", "rubric"] as const).map((type) => {
+                {(["perception", "rubric"] as const).map((type, i) => {
                   const Icon = type === "perception" ? MessagesSquare : ClipboardCheck;
                   return (
-                    <DropdownMenuItem key={type} onSelect={() => addTo(type)}>
-                      <Icon />
-                      <div>
-                        <div>{STUDY_LABEL[type]}</div>
-                        <div className="text-xs text-muted-foreground">{studyOf(type) ? "Add to the running study" : "Start it with these samples"}</div>
-                      </div>
-                    </DropdownMenuItem>
+                    <div key={type}>
+                      {i > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">{STUDY_LABEL[type]}</DropdownMenuLabel>
+                      <DropdownMenuItem onSelect={() => newSurvey(type)}>
+                        <Plus />
+                        <div>
+                          <div>New survey</div>
+                          <div className="text-xs text-muted-foreground">Start one with these samples</div>
+                        </div>
+                      </DropdownMenuItem>
+                      {surveysOf(type).map((st) => (
+                        <DropdownMenuItem key={st.id} onSelect={() => addTo(st)}>
+                          <Icon />
+                          <div className="min-w-0">
+                            <div className="truncate">{st.title}</div>
+                            <div className="text-xs text-muted-foreground">Add to this running survey</div>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
                   );
                 })}
               </DropdownMenuContent>

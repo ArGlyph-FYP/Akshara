@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, ImagePlus, Loader2, Play } from "lucide-react";
+import { Anchor, ImagePlus, Link2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,19 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PICK_KEY } from "@/lib/dataset-types";
-import { DEFAULT_SCALES, SCRIPT_LABEL, type Scale } from "@/lib/types";
+import { DEFAULT_SCALES, SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG, type Scale } from "@/lib/types";
 import { startStudy } from "./actions";
 import type { StudyPageData } from "./load";
 import { SamplePicker } from "./SamplePicker";
 import { COPY } from "./copy";
 
-export function SetupView({ data, onOpenCriteria }: { data: StudyPageData; onOpenCriteria?: () => void }) {
+export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageData; onOpenCriteria?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const copy = COPY[data.type];
   const main = data.type === "rubric";
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState(false);
-  const [title, setTitle] = useState(`${SCRIPT_LABEL[data.script]} ${copy.noun}`);
+  const [title, setTitle] = useState(
+    `${SCRIPT_LABEL[data.script]} ${copy.noun}${data.rounds.length ? ` ${data.rounds.length + 1}` : ""}`,
+  );
   const [instructions, setInstructions] = useState("");
   const [overall, setOverall] = useState<Scale>(DEFAULT_SCALES.overall);
   const [legibility, setLegibility] = useState<Scale>(DEFAULT_SCALES.legibility);
@@ -74,8 +76,8 @@ export function SetupView({ data, onOpenCriteria }: { data: StudyPageData; onOpe
     });
     setBusy(false);
     if (!res.ok) return toast.error(res.error);
-    toast.success("Study started. Share the link with your readers.");
-    router.refresh();
+    toast.success("Survey created. Share its link with your readers.");
+    router.push(`${STUDY_PATH[data.type]}?id=${res.id}`);
   }
 
   return (
@@ -186,15 +188,20 @@ export function SetupView({ data, onOpenCriteria }: { data: StudyPageData; onOpe
             {n ? (
               <>
                 Each reader rates <b className="text-foreground">{per}</b> sample{per === 1 ? "" : "s"}
-                {main && anchors > 0 && <> plus {anchors} anchor{anchors === 1 ? "" : "s"}</>}. You get a link to share as soon as it starts.
+                {main && anchors > 0 && <> plus {anchors} anchor{anchors === 1 ? "" : "s"}</>}. You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.
               </>
             ) : (
-              "You get a link to share as soon as it starts."
+              <>You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.</>
             )}
           </p>
           <Button className="h-10 w-full" onClick={start} disabled={!!problem || busy}>
-            {busy ? <Loader2 className="animate-spin" /> : <Play />} Start study
+            {busy ? <Loader2 className="animate-spin" /> : <Link2 />} Create survey and get link
           </Button>
+          {onCancel && (
+            <Button variant="ghost" className="mt-2 w-full" onClick={onCancel} disabled={busy}>
+              Cancel
+            </Button>
+          )}
           {problem && <p className="mt-2 text-center text-xs text-muted-foreground">{problem}</p>}
         </div>
       </section>

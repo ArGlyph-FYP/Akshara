@@ -34,7 +34,7 @@ npm run seed:demo               # terminal 2: demo users, criteria, fake scans, 
 npm run dev                     # http://localhost:3000
 ```
 
-Sign in on `/login` as `admin@akshara.test` (or `rater1.si@akshara.test`) with the password `Demo#2026`. Study links: `/join/demo-si`, `/join/demo-ta` (perception) and `/join/demo-si-main` (Sinhala main study).
+Sign in on `/login` as `admin@akshara.test` (or `rater1.si@akshara.test`) with the password `Demo#2026`. Survey links: `/sin/survey/demo-si`, `/tam/survey/demo-ta` (perception) and `/sin/survey/demo-si-main` (Sinhala main study). Old `/join/{id}` links redirect to these.
 
 ## Deploy (Vercel + Firebase)
 
@@ -107,4 +107,4 @@ npm run build
 | `app/admin/dataset`, `app/admin/perception`, `app/admin/main` | The three admin tabs; both study pages share `app/admin/_study` |
 | `components/admin/SampleBrowser.tsx` | Shared filter bar + infinite-scroll sample grid (Dataset and study picker) |
 | `app/rate/*` | Reader home, perception form, main-study form |
-| `app/join/[token]`, `app/api/public-join` | Study-link sign-up; `lib/assign.ts → planForNewReader` hands out anchors, least-covered samples and blinded repeats |
+| `app/sin/survey/[id]`, `app/tam/survey/[id]`, `app/_survey`, `app/api/public-join` | Survey-link sign-up (`/join/[token]` redirects here); `lib/assign.ts → planForNewReader` hands out anchors, least-covered samples and blinded repeats |

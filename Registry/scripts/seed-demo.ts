@@ -172,7 +172,7 @@ async function main() {
 
   console.log(`✓ Seeded. Admin: admin@akshara.test (uid ${adminUid}); raters: rater1..3.si@akshara.test, rater1.ta@akshara.test`);
   console.log(`  Password for every demo account: ${DEMO_PASSWORD}`);
-  console.log("  Public survey links: http://localhost:3000/join/demo-si (Sinhala), /join/demo-ta (Tamil, 2 samples per reader)");
+  console.log("  Public survey links: http://localhost:3000/sin/survey/demo-si (Sinhala), /tam/survey/demo-ta (Tamil, 2 samples per reader)");
 }
 
 main().catch((e) => {

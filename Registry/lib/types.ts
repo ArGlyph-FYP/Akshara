@@ -4,6 +4,10 @@ export type Script = (typeof SCRIPTS)[number];
 export const SCRIPT_LABEL: Record<Script, string> = { si: "Sinhala", ta: "Tamil" };
 export const SCRIPT_PREFIX: Record<Script, "SI" | "TA"> = { si: "SI", ta: "TA" };
 
+/** First part of public survey links: /sin/survey/{id} and /tam/survey/{id}. */
+export const SURVEY_LANG: Record<Script, "sin" | "tam"> = { si: "sin", ta: "tam" };
+export const surveyPath = (script: Script, token: string) => `/${SURVEY_LANG[script]}/survey/${token}`;
+
 export type Role = "admin" | "rater";
 export type Phase = "pilot" | "main";
 
@@ -99,7 +103,7 @@ export const DEFAULT_SCALES = {
 /**
  * perception = Phase A perception study (score, open-text reasons, good/weak marks);
  * rubric = Phase C main study (overall, legibility, rubric criteria, weak regions).
- * Each script has one of each, shared with readers through its public link.
+ * A script can run several surveys of each type, each with its own samples and public link.
  */
 export type StudyType = "perception" | "rubric";
 export const STUDY_LABEL: Record<StudyType, string> = { perception: "Perception study", rubric: "Main study" };
@@ -117,7 +121,7 @@ export interface Study {
   /** Rubric studies only. */
   legibilityScale: Scale | null;
   rubricVersion: number | null;
-  /** Public sign-up link: anyone with /join/{publicToken} can become a reader of this study. */
+  /** Public link id: anyone with /sin|tam/survey/{publicToken} can become a reader of this study. */
   publicToken?: string | null;
   publicOpen?: boolean;
   /** Samples each public reader gets (null = all of the study's samples). Least-covered samples go first. */
