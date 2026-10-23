@@ -16,8 +16,8 @@ import { TeamSheet, type TeamMember } from "./TeamSheet";
 
 const NAV = [
   { href: "/admin/dataset", label: "Dataset", icon: Database, key: "dataset" },
-  { href: "/admin/perception", label: "Perception study", icon: MessagesSquare, key: "perception" },
-  { href: "/admin/main", label: "Main study", icon: ClipboardCheck, key: "main" },
+  { href: "/admin/perception", label: "Perception surveys", icon: MessagesSquare, key: "perception" },
+  { href: "/admin/main", label: "Main study surveys", icon: ClipboardCheck, key: "main" },
 ] as const;
 
 /** null = not started yet. */

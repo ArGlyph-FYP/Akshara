@@ -1,6 +1,7 @@
 "use client";
 
-import { Anchor, Check, Copy, Download, ExternalLink, Eye, ImagePlus, Link2, MessageSquareText, MoreHorizontal, Settings2, Trash2, UserX, Users } from "lucide-react";
+import { Anchor, ArrowLeft, Check, Copy, Download, ExternalLink, Eye, ImagePlus, Link2, MessageSquareText, MoreHorizontal, Settings2, Trash2, UserX, Users } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,21 +18,16 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { SCRIPT_LABEL, surveyPath, type Study } from "@/lib/types";
+import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Study } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { addSamplesToStudy, deleteStudy, removeReader, removeSamplesFromStudy, setStudyStatus, updateStudy, type StudyStatus } from "./actions";
+import { addSamplesToStudy, deleteStudy, removeReader, removeSamplesFromStudy, setStudyStatus, updateStudy } from "./actions";
 import { COPY } from "./copy";
 import type { ItemInfo, StudyPageData } from "./load";
 import { markCounts, ResponsesDialog } from "./ResponsesDialog";
 import { SamplePicker } from "./SamplePicker";
+import { STATUS, surveyStatus as statusOf, type SurveyStatus } from "./status";
 
-const STATUS: Record<StudyStatus, { label: string; hint: string }> = {
-  open: { label: "Open", hint: "Anyone with the link can join" },
-  full: { label: "No new readers", hint: "People who joined can finish" },
-  closed: { label: "Closed", hint: "Nobody can rate" },
-};
-
-const statusOf = (s: Study): StudyStatus => (!s.open ? "closed" : s.publicOpen ? "open" : "full");
+type StudyStatus = SurveyStatus;
 
 const when = (t: number) => new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -79,20 +75,22 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
 
   return (
     <div className="space-y-6">
+      <Link href={STUDY_PATH[data.type]} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> All {copy.listNoun}
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{study.title}</h2>
+            <h1 className="text-2xl font-semibold tracking-tight">{study.title}</h1>
             <Badge variant={status === "open" ? "default" : "outline"}>{STATUS[status].label}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
-            {SCRIPT_LABEL[study.script]} · started {when(study.createdAt)} · score {study.overallScale.min}–{study.overallScale.max}
-            {study.legibilityScale && ` · legibility ${study.legibilityScale.min}–${study.legibilityScale.max}`}
+            {SCRIPT_LABEL[study.script]} {copy.noun} · created {when(study.createdAt)}
             {study.rubricVersion && ` · rubric v${study.rubricVersion}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={status} onValueChange={(v) => call(setStudyStatus(study.id, v as StudyStatus), `Study: ${STATUS[v as StudyStatus].label.toLowerCase()}`)}>
+          <Select value={status} onValueChange={(v) => call(setStudyStatus(study.id, v as StudyStatus), `Survey: ${STATUS[v as StudyStatus].label.toLowerCase()}`)}>
             <SelectTrigger className="w-44" aria-label="Study status">
               <SelectValue>{STATUS[status].label}</SelectValue>
             </SelectTrigger>
@@ -134,7 +132,12 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                     description: "Only possible before anyone has submitted a response. Its share link stops working.",
                     confirmLabel: "Delete survey",
                     destructive: true,
-                    onConfirm: () => call(deleteStudy(study.id), "Study deleted"),
+                    onConfirm: async () => {
+                      const r = await deleteStudy(study.id);
+                      if (!r.ok) return void toast.error(r.error ?? "Something went wrong");
+                      toast.success("Survey deleted");
+                      router.push(STUDY_PATH[data.type]);
+                    },
                   })
                 }
               >
@@ -545,7 +548,7 @@ function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Study settings</DialogTitle>
+          <DialogTitle>Survey settings</DialogTitle>
           <DialogDescription>Changes to samples per reader and repeats apply to readers who join from now on.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

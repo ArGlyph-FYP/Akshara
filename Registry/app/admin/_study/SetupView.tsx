@@ -10,24 +10,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PICK_KEY } from "@/lib/dataset-types";
-import { DEFAULT_SCALES, SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG, type Scale } from "@/lib/types";
+import { SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG } from "@/lib/types";
 import { startStudy } from "./actions";
 import type { StudyPageData } from "./load";
 import { SamplePicker } from "./SamplePicker";
 import { COPY } from "./copy";
 
-export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageData; onOpenCriteria?: () => void; onCancel?: () => void }) {
+/** The "new survey" screen: pick samples, name it, create it and get its link. */
+export function SetupView({ data }: { data: StudyPageData }) {
   const router = useRouter();
   const copy = COPY[data.type];
   const main = data.type === "rubric";
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState(false);
   const [title, setTitle] = useState(
-    `${SCRIPT_LABEL[data.script]} ${copy.noun}${data.rounds.length ? ` ${data.rounds.length + 1}` : ""}`,
+    `${SCRIPT_LABEL[data.script]} ${main ? "main study" : "perception"} survey ${data.rounds.length + 1}`,
   );
   const [instructions, setInstructions] = useState("");
-  const [overall, setOverall] = useState<Scale>(DEFAULT_SCALES.overall);
-  const [legibility, setLegibility] = useState<Scale>(DEFAULT_SCALES.legibility);
   const [perReader, setPerReader] = useState("");
   const [repeatPct, setRepeatPct] = useState(10);
   const [busy, setBusy] = useState(false);
@@ -57,9 +56,7 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
       ? "Choose the samples first"
       : main && criteria.length === 0
         ? "Add the rubric criteria first"
-        : overall.max <= overall.min || (main && legibility.max <= legibility.min)
-          ? "Check the score scale"
-          : null;
+        : null;
 
   async function start() {
     setBusy(true);
@@ -69,15 +66,13 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
       title,
       instructions,
       sampleIds: [...selected],
-      overallScale: overall,
-      legibilityScale: main ? legibility : null,
       perReader: perReader.trim() ? Number(perReader) : null,
       repeatPct,
     });
     setBusy(false);
     if (!res.ok) return toast.error(res.error);
     toast.success("Survey created. Share its link with your readers.");
-    router.push(`${STUDY_PATH[data.type]}?id=${res.id}`);
+    router.push(`${STUDY_PATH[data.type]}/${res.id}`);
   }
 
   return (
@@ -142,10 +137,6 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
           </Label>
           <Textarea id="st-instr" rows={3} value={instructions} onChange={(e) => setInstructions(e.target.value)} />
         </div>
-        <div className="flex flex-wrap gap-4">
-          <ScaleField label={main ? "Overall score" : "Score"} value={overall} onChange={setOverall} />
-          {main && <ScaleField label="Legibility" value={legibility} onChange={setLegibility} />}
-        </div>
         <div>
           <Label htmlFor="st-per" className="mb-1.5">
             Samples per reader
@@ -174,11 +165,13 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
             </div>
             <div className="rounded-lg bg-muted/60 p-3 text-sm">
               Rubric v{data.rubricVersion}: <b>{criteria.length}</b> active criteria.{" "}
-              {onOpenCriteria && (
-                <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onOpenCriteria}>
-                  {criteria.length ? "Review" : "Add criteria"}
-                </button>
-              )}
+              <button
+                type="button"
+                className="text-primary underline-offset-4 hover:underline"
+                onClick={() => router.push(`${STUDY_PATH.rubric}?tab=criteria`)}
+              >
+                {criteria.length ? "Review" : "Add criteria"}
+              </button>
             </div>
           </>
         )}
@@ -197,11 +190,9 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
           <Button className="h-10 w-full" onClick={start} disabled={!!problem || busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Link2 />} Create survey and get link
           </Button>
-          {onCancel && (
-            <Button variant="ghost" className="mt-2 w-full" onClick={onCancel} disabled={busy}>
-              Cancel
-            </Button>
-          )}
+          <Button variant="ghost" className="mt-2 w-full" onClick={() => router.push(STUDY_PATH[data.type])} disabled={busy}>
+            Cancel
+          </Button>
           {problem && <p className="mt-2 text-center text-xs text-muted-foreground">{problem}</p>}
         </div>
       </section>
@@ -227,17 +218,4 @@ export function SetupView({ data, onOpenCriteria, onCancel }: { data: StudyPageD
 
 function Step({ n }: { n: number }) {
   return <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{n}</span>;
-}
-
-export function ScaleField({ label, value, onChange }: { label: string; value: Scale; onChange: (s: Scale) => void }) {
-  return (
-    <fieldset>
-      <legend className="mb-1.5 text-sm font-medium">{label}</legend>
-      <div className="flex items-center gap-1.5">
-        <Input type="number" aria-label={`${label} from`} className="w-16" value={value.min} onChange={(e) => onChange({ ...value, min: Number(e.target.value) })} />
-        <span className="text-sm text-muted-foreground">to</span>
-        <Input type="number" aria-label={`${label} to`} className="w-16" value={value.max} onChange={(e) => onChange({ ...value, max: Number(e.target.value) })} />
-      </div>
-    </fieldset>
-  );
 }

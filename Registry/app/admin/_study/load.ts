@@ -1,5 +1,6 @@
 import "server-only";
 import { getSettings, listAssignments, listCriteria, listRatings, listSamples, listStudies, listUsers } from "@/lib/data";
+import { surveyStatus, type SurveyStatus } from "./status";
 import { datasetRows } from "@/lib/dataset";
 import type { SampleRow, StudyRef } from "@/lib/dataset-types";
 import type { AssignmentKind, Criterion, Region, Script, Study, StudyType } from "@/lib/types";
@@ -39,9 +40,9 @@ export interface ItemInfo {
 export interface StudyPageData {
   script: Script;
   type: StudyType;
-  /** The study shown (the newest of this type unless another round is picked); null = not started yet. */
+  /** The survey shown; null on the "new survey" screen. */
   study: Study | null;
-  /** Every study of this type for the script, newest first (normally just one). */
+  /** Every survey of this type for the script, newest first. */
   rounds: { id: string; title: string; createdAt: number }[];
   /** Samples that can be added (not withdrawn or rejected). */
   rows: SampleRow[];
@@ -53,6 +54,40 @@ export interface StudyPageData {
   items: ItemInfo[];
 }
 
+export interface SurveySummary {
+  id: string;
+  title: string;
+  token: string | null;
+  status: SurveyStatus;
+  samples: number;
+  readers: number;
+  done: number;
+  total: number;
+  createdAt: number;
+}
+
+/** Every survey of one type for the list screen, newest first, with reader and response counts. */
+export async function loadSurveyList(script: Script, type: StudyType): Promise<SurveySummary[]> {
+  const [studies, assignments] = await Promise.all([listStudies(script), listAssignments({ script })]);
+  return studies
+    .filter((s) => s.type === type)
+    .map((s) => {
+      const items = assignments.filter((a) => a.studyId === s.id);
+      return {
+        id: s.id,
+        title: s.title,
+        token: s.publicToken ?? null,
+        status: surveyStatus(s),
+        samples: s.sampleIds.length,
+        readers: new Set(items.map((a) => a.raterId)).size,
+        done: items.filter((a) => a.status === "done").length,
+        total: items.length,
+        createdAt: s.createdAt,
+      };
+    });
+}
+
+/** One survey's page (with `id`), or the "new survey" screen (without). */
 export async function loadStudyPage(script: Script, type: StudyType, id?: string): Promise<StudyPageData> {
   const [all, { rows, studies: refs }, criteria, settings] = await Promise.all([
     listStudies(script),
@@ -61,7 +96,7 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
     getSettings(),
   ]);
   const rounds = all.filter((s) => s.type === type);
-  const study = rounds.find((s) => s.id === id) ?? rounds[0] ?? null;
+  const study = (id && rounds.find((s) => s.id === id)) || null;
   const base = {
     script,
     type,

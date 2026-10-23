@@ -65,7 +65,7 @@ export function DatasetView({
     try {
       sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, type, ids }));
     } catch {}
-    router.push(`${STUDY_PATH[type]}?new=1`);
+    router.push(`${STUDY_PATH[type]}/new`);
   }
 
   /** Adds the selection to a survey that is already running. */
@@ -74,7 +74,7 @@ export function DatasetView({
     if (!r.ok) return toast.error(r.error);
     toast.success(`Added ${r.added} sample${r.added === 1 ? "" : "s"} to ${study.title}`, {
       description: "Readers who join from now on get them.",
-      action: { label: "Open", onClick: () => router.push(`${STUDY_PATH[study.type]}?id=${study.id}`) },
+      action: { label: "Open", onClick: () => router.push(`${STUDY_PATH[study.type]}/${study.id}`) },
     });
     sel.clear();
     router.refresh();

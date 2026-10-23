@@ -5,19 +5,13 @@ import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/auth";
 import { newId, newPublicToken } from "@/lib/codes";
 import { col, currentCriteria, db, getStudy, listAssignments, listRatings, listSamples } from "@/lib/data";
-import { SCRIPT_LABEL, STUDY_LABEL, type Scale, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
+import { DEFAULT_SCALES, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
+import type { SurveyStatus } from "./status";
 
 type Result<T = object> = ({ ok: true } & T) | { ok?: false; error: string };
 
 function fail(e: unknown): { error: string } {
   return { error: e instanceof Error ? e.message : String(e) };
-}
-
-function checkScale(s: Scale, name: string): Scale {
-  const min = Math.round(Number(s?.min));
-  const max = Math.round(Number(s?.max));
-  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min || max - min > 20) throw new Error(`${name}: choose a valid range`);
-  return { min, max };
 }
 
 function cleanPerReader(v: unknown): number | null {
@@ -54,15 +48,16 @@ async function deleteAll(refs: DocumentReference[]) {
   }
 }
 
-/** Starts a script's perception or main study with the chosen samples. Its share link is on straight away. */
+/**
+ * Creates a perception or main-study survey with the chosen samples. Its share link is on straight away.
+ * Score ranges aren't set by admins: they're fixed per study type (questions are being finalised per script).
+ */
 export async function startStudy(input: {
   script: Script;
   type: StudyType;
   title: string;
   instructions: string;
   sampleIds: string[];
-  overallScale: Scale;
-  legibilityScale: Scale | null;
   perReader: number | null;
   repeatPct: number;
 }): Promise<Result<{ id: string }>> {
@@ -83,12 +78,12 @@ export async function startStudy(input: {
     const doc: Omit<Study, "id"> = {
       script: input.script,
       type: input.type,
-      title: String(input.title ?? "").trim().slice(0, 120) || `${SCRIPT_LABEL[input.script]} ${STUDY_LABEL[input.type].toLowerCase()}`,
+      title: String(input.title ?? "").trim().slice(0, 120) || `${SCRIPT_LABEL[input.script]} ${input.type === "rubric" ? "main study" : "perception"} survey`,
       instructions: String(input.instructions ?? "").slice(0, 4000),
       sampleIds: samples.map((s) => s.id),
       open: true,
-      overallScale: checkScale(input.overallScale, "Score scale"),
-      legibilityScale: input.type === "rubric" ? checkScale(input.legibilityScale ?? { min: 1, max: 5 }, "Legibility scale") : null,
+      overallScale: DEFAULT_SCALES.overall,
+      legibilityScale: input.type === "rubric" ? DEFAULT_SCALES.legibility : null,
       rubricVersion,
       publicToken: newPublicToken(),
       publicOpen: true,
@@ -104,13 +99,7 @@ export async function startStudy(input: {
   }
 }
 
-/**
- * "open": anyone with the link can join; "full": no new readers, those who joined can finish;
- * "closed": nobody can rate.
- */
-export type StudyStatus = "open" | "full" | "closed";
-
-export async function setStudyStatus(studyId: string, status: StudyStatus): Promise<Result> {
+export async function setStudyStatus(studyId: string, status: SurveyStatus): Promise<Result> {
   try {
     await assertAdmin();
     const study = await loadStudy(studyId);
