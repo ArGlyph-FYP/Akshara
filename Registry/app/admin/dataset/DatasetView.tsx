@@ -4,6 +4,7 @@ import { Check, ChevronDown, ClipboardCheck, Download, ImagePlus, MessagesSquare
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/admin/Confirm";
 import { EmptyState, PageHeader, Stat } from "@/components/admin/PageHeader";
 import { FilterBar, LayoutToggle, SampleGrid, useSampleSelection } from "@/components/admin/SampleBrowser";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ import { act } from "@/lib/client-action";
 import { PICK_KEY, type SampleRow, type StudyRef } from "@/lib/dataset-types";
 import { SCRIPT_LABEL, STUDY_LABEL, STUDY_PATH, type Participant, type Script, type StudyType } from "@/lib/types";
 import { addSamplesToStudy } from "../_study/actions";
-import { setStatus } from "./sample-actions";
+import { deleteSamples, setStatus } from "./sample-actions";
 import { SampleSheet } from "./SampleSheet";
 import { UploadDialog, type Known } from "./UploadDialog";
 import { WritersSheet } from "./WritersSheet";
@@ -50,11 +51,32 @@ export function DatasetView({
   const rated = rows.filter((r) => r.rating === "rated").length;
   const notRated = rows.filter((r) => r.rating === "not_rated").length;
 
-  async function bulkStatus(status: "qc_ok" | "rejected") {
+  const [confirmDialog, ask] = useConfirm();
+
+  async function bulkStatus(status: "qc_ok") {
     if (await act(setStatus, { ids: ids.join(","), status })) {
       sel.clear();
       router.refresh();
     }
+  }
+
+  function bulkReject() {
+    const picked = rows.filter((r) => sel.selected.has(r.id));
+    const ratings = picked.reduce((n, r) => n + r.done, 0);
+    ask({
+      title: `Reject and delete ${picked.length} sample${picked.length === 1 ? "" : "s"}?`,
+      description: `They are removed from the dataset and from storage, and taken out of any survey. This can't be undone.${
+        ratings ? ` ${ratings} rating(s) on them are deleted too.` : ""
+      }`,
+      confirmLabel: "Reject and delete",
+      destructive: true,
+      onConfirm: async () => {
+        if (await act(deleteSamples, { ids: picked.map((r) => r.id).join(",") })) {
+          sel.clear();
+          router.refresh();
+        }
+      },
+    });
   }
 
   // Studies come newest first; a script can run several surveys of each type.
@@ -82,6 +104,7 @@ export function DatasetView({
 
   return (
     <div>
+      {confirmDialog}
       <PageHeader
         title="Dataset"
         description={`All ${SCRIPT_LABEL[script]} handwriting scans. Upload, check and browse them here, then select samples to add to the perception or main study.`}
@@ -168,7 +191,7 @@ export function DatasetView({
             <Button variant="outline" size="sm" onClick={() => bulkStatus("qc_ok")}>
               <Check /> Approve
             </Button>
-            <Button variant="outline" size="sm" onClick={() => bulkStatus("rejected")}>
+            <Button variant="outline" size="sm" onClick={bulkReject}>
               <X /> Reject
             </Button>
             <DropdownMenu>

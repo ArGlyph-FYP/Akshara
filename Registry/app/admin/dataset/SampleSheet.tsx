@@ -4,6 +4,7 @@ import { Anchor, Check, Crop, Loader2, RotateCcw, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Confirm } from "@/components/admin/Confirm";
 import { ImageAnnotator } from "@/components/ImageAnnotator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,8 +18,8 @@ import { sampleLabel } from "@/lib/codes";
 import { QC_LABEL, type SampleRow } from "@/lib/dataset-types";
 import type { Box } from "@/lib/form-split";
 import type { SampleStatus } from "@/lib/types";
-import { BoxEditor } from "./BoxEditor";
-import { sampleDetail, setAnchor, setStatus, type SampleDetail } from "./sample-actions";
+import { BoxEditor, ZoomRegion } from "./BoxEditor";
+import { deleteSamples, sampleDetail, setAnchor, setStatus, type SampleDetail } from "./sample-actions";
 import { changeFormCode } from "./upload-actions";
 import { recropSample } from "./upload-client";
 
@@ -161,7 +162,13 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                   <Button size="sm" variant="outline" onClick={() => setEdit(null)} disabled={savingBox}>
                     Cancel
                   </Button>
-                  <span className="text-xs text-muted-foreground">Drag the box or its edges.</span>
+                  <span className="text-xs text-muted-foreground">Drag on the page to draw a new box, or drag the box, its edges or corners.</span>
+                </div>
+                <div className="w-full space-y-1">
+                  <div className="text-xs text-muted-foreground">Will be saved as:</div>
+                  <div style={{ width: `min(100%, calc(12rem * ${(edit.box.w * edit.aspect) / edit.box.h}))` }}>
+                    <ZoomRegion src={`/api/image/${row.id}?size=page`} box={edit.box} aspect={edit.aspect} className="w-full" />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -239,11 +246,28 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                             <Check /> Approve
                           </Button>
                         )}
-                        {detail.status !== "rejected" && (
-                          <Button size="sm" variant="outline" onClick={() => qc("rejected")}>
+                        <Confirm
+                          title={`Reject and delete ${label}?`}
+                          description={
+                            <>
+                              The scan is removed from the dataset and from storage, and taken out of any survey. This can&apos;t be undone.
+                              {detail.items.some((i) => i.status === "done") &&
+                                ` Its ${detail.items.filter((i) => i.status === "done").length} rating(s) are deleted too.`}
+                            </>
+                          }
+                          confirmLabel="Reject and delete"
+                          destructive
+                          onConfirm={async () => {
+                            if (await act(deleteSamples, { ids: row.id })) {
+                              onClose();
+                              router.refresh();
+                            }
+                          }}
+                        >
+                          <Button size="sm" variant="outline">
                             <X /> Reject
                           </Button>
-                        )}
+                        </Confirm>
                         {detail.status !== "uploaded" && (
                           <Button size="sm" variant="ghost" onClick={() => qc("uploaded")}>
                             <RotateCcw /> Unchecked

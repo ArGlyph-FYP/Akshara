@@ -54,6 +54,8 @@ export function FormUploadPane({
   const [current, setCurrent] = useState<string | null>(null);
   const [reading, setReading] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  /** Paragraph box that a drag on the page redraws (0 = paragraph 1). */
+  const [selected, setSelected] = useState(0);
   const codeInput = useRef<HTMLInputElement>(null);
 
   // Free the page images when the dialog goes away.
@@ -301,6 +303,8 @@ export function FormUploadPane({
                   aspect={page.width / page.height}
                   boxes={page.parts}
                   labels={PARTS.map((n) => `${code ?? "?"}-${n}`)}
+                  selected={selected}
+                  onSelect={setSelected}
                   onChange={(i, box) => {
                     if (locked) return;
                     const parts = [...page.parts] as [Box, Box];
@@ -342,13 +346,39 @@ export function FormUploadPane({
 
                 <div className="space-y-1.5">
                   <div className="font-medium">Paragraphs</div>
-                  {page.layout.note ? (
+                  {page.layout.note && (
                     <p className="flex gap-1.5 text-xs">
-                      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> {page.layout.note}. Check the boxes and drag them if needed.
+                      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" /> {page.layout.note}. Check the boxes below.
                     </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Found automatically. Drag a box or its edges to adjust.</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Pick a paragraph, then drag on the page to draw its box. Drag a box, its edges or corners to adjust. The previews show exactly
+                    what is saved.
+                  </p>
+                  <div className="space-y-2">
+                    {PARTS.map((n, i) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setSelected(i)}
+                        className={cn(
+                          "block w-full rounded-lg border-2 p-1.5 text-left transition",
+                          selected === i ? "border-primary" : "border-transparent hover:border-border",
+                        )}
+                      >
+                        <div className="mb-1 flex items-center justify-between font-mono text-xs">
+                          <span className="font-medium">
+                            {code ?? "?"}-{n}
+                          </span>
+                          {selected === i && <span className="font-sans text-muted-foreground">drawing this one</span>}
+                        </div>
+                        {/* Limit the height without squashing: a 10rem-tall preview is this wide. */}
+                        <div style={{ width: `min(100%, calc(10rem * ${(page.parts[i].w * page.width) / (page.parts[i].h * page.height)}))` }}>
+                          <ZoomRegion src={page.url} box={page.parts[i]} aspect={page.width / page.height} className="w-full" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"

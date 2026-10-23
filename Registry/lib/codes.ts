@@ -20,6 +20,9 @@ export function isCode(code: string): boolean {
   return CODE_RE.test(code);
 }
 
+/** Note on writers created automatically by a form upload; such a writer is removed again once it has no samples. */
+export const AUTO_REGISTER_NOTE = "Registered during bulk upload";
+
 const alnum = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 8);
 const idAlphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 16);
 

@@ -3,12 +3,15 @@ import { cert, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { readServiceAccount } from "../lib/firebase/credentials";
 
-const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+// Same lenient parsing as the app (plain JSON, quoted, or base64). Never print the raw value: it holds the private key.
+const { status, account } = readServiceAccount();
+if (status !== "ok" && status !== "emulator" && status !== "missing") throw new Error(`FIREBASE_SERVICE_ACCOUNT is ${status}`);
 const app = initializeApp({
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  ...(sa ? { credential: cert(JSON.parse(sa)) } : {}),
+  ...(account ? { credential: cert(account) } : {}),
 });
 
 export const db = getFirestore(app);

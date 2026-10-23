@@ -1,10 +1,13 @@
 "use server";
 
+import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { run, str } from "@/lib/action";
 import { assertAdmin } from "@/lib/auth";
+import { AUTO_REGISTER_NOTE } from "@/lib/codes";
 import { col, db, getSample, listAssignments, listRatings, listStudies, listUsers } from "@/lib/data";
-import type { SampleStatus } from "@/lib/types";
+import { adminBucket } from "@/lib/firebase/admin";
+import type { Participant, Sample, SampleStatus } from "@/lib/types";
 
 const STATUSES: SampleStatus[] = ["uploaded", "qc_ok", "rejected"];
 
@@ -19,6 +22,65 @@ export async function setStatus(_: unknown, fd: FormData) {
     await batch.commit();
     revalidatePath("/admin/dataset");
     return ids.length > 1 ? `${ids.length} samples marked ${status}` : undefined;
+  });
+}
+
+/** Firestore batches hold at most 500 writes. */
+async function deleteAll(refs: DocumentReference[]) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const batch = db().batch();
+    refs.slice(i, i + 400).forEach((r) => batch.delete(r));
+    await batch.commit();
+  }
+}
+
+/**
+ * Reject = remove from the dataset for good: the sample, its image files, its rating work and ratings,
+ * and its place in studies. The original form page goes once no paragraph uses it, and a writer that was
+ * only created by the upload goes once it has no samples left.
+ */
+export async function deleteSamples(_: unknown, fd: FormData) {
+  return run(async () => {
+    await assertAdmin();
+    const ids = str(fd, "ids").split(",").filter(Boolean);
+    if (!ids.length) throw new Error("Nothing selected");
+    const studies = await listStudies();
+    const bucket = adminBucket();
+    const pages = new Set<string>();
+    const codes = new Set<string>();
+    let deleted = 0;
+    let ratings = 0;
+    for (const id of ids) {
+      const snap = await col.samples().doc(id).get();
+      if (!snap.exists) continue;
+      const s = snap.data() as Sample;
+      const [r, a] = await Promise.all([col.ratings().where("sampleId", "==", id).get(), col.assignments().where("sampleId", "==", id).get()]);
+      ratings += r.size;
+      await deleteAll([...r.docs, ...a.docs].map((d) => d.ref));
+      const batch = db().batch();
+      for (const st of studies) {
+        if (st.sampleIds.includes(id)) batch.update(col.studies().doc(st.id), { sampleIds: FieldValue.arrayRemove(id) });
+      }
+      batch.delete(snap.ref);
+      await batch.commit();
+      for (const p of [s.imagePath, s.thumbPath]) if (p) await bucket.file(p).delete({ ignoreNotFound: true });
+      if (s.sourcePath) pages.add(s.sourcePath);
+      codes.add(s.participantCode);
+      deleted++;
+    }
+    for (const p of pages) {
+      const users = await col.samples().where("sourcePath", "==", p).limit(1).get();
+      if (users.empty) await bucket.file(p).delete({ ignoreNotFound: true });
+    }
+    for (const code of codes) {
+      const ref = col.participants().doc(code);
+      const p = (await ref.get()).data() as Participant | undefined;
+      if (p?.notes !== AUTO_REGISTER_NOTE) continue;
+      const left = await col.samples().where("participantCode", "==", code).limit(1).get();
+      if (left.empty) await ref.delete();
+    }
+    revalidatePath("/admin/dataset");
+    return `Deleted ${deleted} sample${deleted === 1 ? "" : "s"}${ratings ? ` and ${ratings} rating${ratings === 1 ? "" : "s"}` : ""}`;
   });
 }
 

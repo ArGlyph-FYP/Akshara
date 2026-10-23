@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { run, str } from "@/lib/action";
 import { assertAdmin } from "@/lib/auth";
-import { newId, newWriterId, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
+import { AUTO_REGISTER_NOTE, newId, newWriterId, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
 import { col, db, getSample } from "@/lib/data";
 import { ACCEPTED_TYPES } from "@/lib/filenames";
 import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
@@ -88,7 +88,7 @@ async function ensureParticipant(parsed: { code: string; script: Script; number:
     status: "active",
     withdrawnAt: null,
     writerId: newWriterId(),
-    notes: AUTO_NOTE,
+    notes: AUTO_REGISTER_NOTE,
     createdAt: Date.now(),
   };
   await db().runTransaction(async (tx) => {
@@ -99,8 +99,6 @@ async function ensureParticipant(parsed: { code: string; script: Script; number:
   });
   return participant;
 }
-
-const AUTO_NOTE = "Registered during bulk upload";
 
 /** After the file is in Storage: registers the code if asked, replaces the old page, writes the sample. */
 async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
@@ -297,7 +295,7 @@ export async function changeFormCode(_: unknown, fd: FormData) {
 
     const oldRef = col.participants().doc(from);
     const old = (await oldRef.get()).data() as Participant | undefined;
-    if (old?.notes === AUTO_NOTE) {
+    if (old?.notes === AUTO_REGISTER_NOTE) {
       const left = await col.samples().where("participantCode", "==", from).limit(1).get();
       if (left.empty) await oldRef.delete();
     }
