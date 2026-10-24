@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, ClipboardCheck, Download, ImagePlus, MessagesSquare, Plus, X } from "lucide-react";
+import { Check, ChevronDown, ClipboardCheck, Download, ImagePlus, MessagesSquare, Plus, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -64,11 +64,11 @@ export function DatasetView({
     const picked = rows.filter((r) => sel.selected.has(r.id));
     const ratings = picked.reduce((n, r) => n + r.done, 0);
     ask({
-      title: `Reject and delete ${picked.length} sample${picked.length === 1 ? "" : "s"}?`,
+      title: `Delete ${picked.length} sample${picked.length === 1 ? "" : "s"}?`,
       description: `They are removed from the dataset and from storage, and taken out of any survey. This can't be undone.${
         ratings ? ` ${ratings} rating(s) on them are deleted too.` : ""
       }`,
-      confirmLabel: "Reject and delete",
+      confirmLabel: "Delete",
       destructive: true,
       onConfirm: async () => {
         if (await act(deleteSamples, { ids: picked.map((r) => r.id).join(",") })) {
@@ -192,7 +192,7 @@ export function DatasetView({
               <Check /> Approve
             </Button>
             <Button variant="outline" size="sm" onClick={bulkReject}>
-              <X /> Reject
+              <Trash2 /> Delete
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

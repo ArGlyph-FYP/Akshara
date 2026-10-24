@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, Crop, Loader2, RotateCcw, X } from "lucide-react";
+import { Anchor, Check, Crop, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -239,15 +239,15 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{QC_LABEL[detail.status as SampleStatus]}</Badge>
                     </div>
-                    {detail.status !== "excluded" && (
-                      <div className="flex flex-wrap gap-2">
-                        {detail.status !== "qc_ok" && (
+                    {/* Delete is always offered (also for withdrawn writers' scans); approve / unchecked only for active ones. */}
+                    <div className="flex flex-wrap gap-2">
+                        {detail.status !== "excluded" && detail.status !== "qc_ok" && (
                           <Button size="sm" onClick={() => qc("qc_ok")}>
                             <Check /> Approve
                           </Button>
                         )}
                         <Confirm
-                          title={`Reject and delete ${label}?`}
+                          title={`Delete ${label}?`}
                           description={
                             <>
                               The scan is removed from the dataset and from storage, and taken out of any survey. This can&apos;t be undone.
@@ -255,7 +255,7 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                                 ` Its ${detail.items.filter((i) => i.status === "done").length} rating(s) are deleted too.`}
                             </>
                           }
-                          confirmLabel="Reject and delete"
+                          confirmLabel="Delete"
                           destructive
                           onConfirm={async () => {
                             if (await act(deleteSamples, { ids: row.id })) {
@@ -265,16 +265,15 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                           }}
                         >
                           <Button size="sm" variant="outline">
-                            <X /> Reject
+                            <Trash2 /> Delete
                           </Button>
                         </Confirm>
-                        {detail.status !== "uploaded" && (
+                        {detail.status !== "excluded" && detail.status !== "uploaded" && (
                           <Button size="sm" variant="ghost" onClick={() => qc("uploaded")}>
                             <RotateCcw /> Unchecked
                           </Button>
                         )}
-                      </div>
-                    )}
+                    </div>
                   </section>
 
                   <section className="space-y-2 rounded-lg border p-3">
