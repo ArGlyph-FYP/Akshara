@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { normaliseCode } from "@/lib/codes";
 import { ACCEPTED_TYPES, parseScanFilename } from "@/lib/filenames";
-import type { Script } from "@/lib/types";
+import { SCRIPT_PREFIX, type Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { FormUploadPane } from "./FormUploadPane";
 import type { ScanMeta } from "./upload-actions";
@@ -178,11 +178,14 @@ export function UploadDialog({ known, scanned, script }: { known: Known; scanned
           <DialogTitle>Upload scans</DialogTitle>
           <DialogDescription>
             {mode === "forms" ? (
-              <>Scanned Akshara forms: each page is split into its two paragraphs, saved as e.g. SI-001-1 and SI-001-2.</>
+              <>
+                Scanned Akshara forms: each page is split into its two paragraphs, saved as e.g. {SCRIPT_PREFIX[script]}-001-1 and{" "}
+                {SCRIPT_PREFIX[script]}-001-2.
+              </>
             ) : (
               <>
-                Whole pages as one sample each. Name files like <code className="rounded bg-muted px-1">SI-001.jpg</code> or{" "}
-                <code className="rounded bg-muted px-1">TA-014_p2.png</code> to match them automatically. JPEG or PNG, 300 dpi recommended.
+                Whole pages as one sample each. Name files like <code className="rounded bg-muted px-1">{SCRIPT_PREFIX[script]}-001.jpg</code> or{" "}
+                <code className="rounded bg-muted px-1">{SCRIPT_PREFIX[script]}-014_p2.png</code> to match them automatically. JPEG or PNG, 300 dpi recommended.
               </>
             )}
           </DialogDescription>
@@ -262,7 +265,7 @@ export function UploadDialog({ known, scanned, script }: { known: Known; scanned
                           <Input
                             className="h-7 w-24 font-mono"
                             value={r.code}
-                            placeholder="SI-001"
+                            placeholder={`${SCRIPT_PREFIX[script]}-001`}
                             disabled={r.state === "done" || busy}
                             onChange={(e) => update(r.key, { code: e.target.value })}
                             onBlur={(e) => {

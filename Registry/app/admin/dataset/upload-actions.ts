@@ -7,7 +7,7 @@ import { AUTO_REGISTER_NOTE, newId, newWriterId, normaliseCode, parseFormCode, s
 import { col, db, getSample } from "@/lib/data";
 import { ACCEPTED_TYPES } from "@/lib/filenames";
 import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
-import { SCRIPTS, type Participant, type Phase, type Sample, type Script } from "@/lib/types";
+import { SCRIPT_PREFIX, SCRIPTS, type Participant, type Phase, type Sample, type Script } from "@/lib/types";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -266,8 +266,8 @@ export async function changeFormCode(_: unknown, fd: FormData) {
     if (!sample) throw new Error("Sample not found");
     const target = parseFormCode(str(fd, "code"), sample.script);
     const parsed = target ? normaliseCode(target) : null;
-    if (!parsed) throw new Error("Type a code like SI-012");
-    if (parsed.script !== sample.script) throw new Error(`Use a ${sample.script === "si" ? "SI" : "TA"} code`);
+    if (!parsed) throw new Error(`Type a code like ${SCRIPT_PREFIX[sample.script]}-012`);
+    if (parsed.script !== sample.script) throw new Error(`Use a ${SCRIPT_PREFIX[sample.script]} code`);
     const from = sample.participantCode;
     if (parsed.code === from) return "Code unchanged";
 

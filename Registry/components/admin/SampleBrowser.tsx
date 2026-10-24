@@ -73,7 +73,7 @@ export function FilterBar({
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative w-full sm:w-56">
         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={filters.q} onChange={(e) => set("q", e.target.value)} placeholder="Search code, e.g. SI-012" className="pl-8" />
+        <Input value={filters.q} onChange={(e) => set("q", e.target.value)} placeholder="Search code, e.g. 012" className="pl-8" />
       </div>
       <FilterSelect
         value={filters.rating}

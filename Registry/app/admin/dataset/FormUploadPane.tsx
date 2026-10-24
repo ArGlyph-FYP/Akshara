@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCode, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
 import type { Box } from "@/lib/form-split";
-import { SCRIPT_LABEL, type Phase, type Script } from "@/lib/types";
+import { SCRIPT_LABEL, SCRIPT_PREFIX, type Phase, type Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { BoxEditor, ZoomRegion } from "./BoxEditor";
 import { cropPage, FORM_TYPES, loadFormPages, type FormPage } from "./form-pages";
@@ -324,7 +324,7 @@ export function FormUploadPane({
                     ref={codeInput}
                     className="max-w-64 font-mono"
                     value={page.code}
-                    placeholder={`${script === "ta" ? "TA" : "SI"}-001`}
+                    placeholder={`${SCRIPT_PREFIX[script]}-001`}
                     disabled={locked}
                     onChange={(e) => update(page.key, { code: e.target.value, auto: false })}
                     onBlur={() => {
@@ -339,8 +339,8 @@ export function FormUploadPane({
                   />
                   <p className="text-xs text-muted-foreground">
                     {page.auto ? "Suggested: the next free code. " : ""}
-                    If the paper says something else, type it: <span className="font-mono">S001</span>, <span className="font-mono">1</span> or{" "}
-                    <span className="font-mono">SI-001</span> all work ({SCRIPT_LABEL[script]} unless it says TA/SI). Later pages renumber to follow.
+                    If the paper says something else, type it: <span className="font-mono">{script === "ta" ? "T" : "S"}001</span>,{" "}
+                    <span className="font-mono">1</span> or <span className="font-mono">{SCRIPT_PREFIX[script]}-001</span> all work ({SCRIPT_LABEL[script]} unless it says TA/SI). Later pages renumber to follow.
                   </p>
                 </div>
 
