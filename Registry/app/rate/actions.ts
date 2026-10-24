@@ -131,6 +131,17 @@ export async function submitRating(input: RatingInput) {
   return { ...res, anchor };
 }
 
+/** Records whether the rater took the short tour or skipped it (kept for analysis). */
+export async function recordTraining(choice: "done" | "skipped") {
+  return run(async () => {
+    const s = await assertStaff();
+    if (choice !== "done" && choice !== "skipped") throw new Error("Bad choice");
+    // A rater who took the tour once stays "done".
+    if (s.user.training === "done") return;
+    await col.users().doc(s.uid).update({ training: choice });
+  });
+}
+
 /** The reader recognised the writer (their own, family or a friend): leave the item unrated. */
 export async function skipItem(assignmentId: string) {
   return run(async () => {

@@ -41,6 +41,7 @@ export async function loadExportData(db: Firestore) {
             ageGroup: u.ageGroup ?? null,
             age: u.age ?? null,
             occupation: u.occupation ?? null,
+            training: u.training ?? null,
           },
         ];
       }),

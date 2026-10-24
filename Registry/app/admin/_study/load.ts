@@ -16,6 +16,7 @@ export interface ReaderInfo {
   ageGroup: string | null;
   age: number | null;
   occupation: string | null;
+  training: string | null;
   joinedAt: number;
 }
 
@@ -149,6 +150,7 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
         ageGroup: u.ageGroup ?? null,
         age: u.age ?? null,
         occupation: u.occupation ?? null,
+        training: u.training ?? null,
         joinedAt: firstItem.get(u.uid) ?? u.createdAt,
       }))
       .sort((a, b) => b.joinedAt - a.joinedAt),

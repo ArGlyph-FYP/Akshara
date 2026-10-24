@@ -15,7 +15,7 @@ export async function joinAsSelf(token: string): Promise<{ error?: string; next?
     }
     const n = await assignPublicReader(study, s.uid);
     if (!n) return { error: "There is nothing to rate in this survey yet." };
-    return { next: `/rate/next?study=${study.id}` };
+    return { next: study.type === "rubric" && !s.user.training ? `/rate/intro?study=${study.id}` : `/rate/next?study=${study.id}` };
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }

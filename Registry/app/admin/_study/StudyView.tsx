@@ -243,6 +243,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                           {[
                             r.age ? `${r.age} y` : r.ageGroup,
                             r.occupation,
+                            r.training === "done" ? "Took tour" : r.training === "skipped" ? "Skipped tour" : null,
                             r.nativeReader === true ? "First language" : r.nativeReader === false ? "Not first language" : null,
                           ]
                             .filter(Boolean)

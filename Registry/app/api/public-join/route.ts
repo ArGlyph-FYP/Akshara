@@ -81,7 +81,9 @@ export async function POST(req: Request) {
 
   const expiresIn = SESSION_DAYS * 24 * 60 * 60 * 1000;
   const cookie = await adminAuth().createSessionCookie(String(body.idToken), { expiresIn });
-  const res = NextResponse.json({ ok: true, next: `/rate/next?study=${study.id}` });
+  // Main study: first-time raters choose a short tour or skip straight to rating.
+  const next = study.type === "rubric" && !existing?.training ? `/rate/intro?study=${study.id}` : `/rate/next?study=${study.id}`;
+  const res = NextResponse.json({ ok: true, next });
   res.cookies.set(SESSION_COOKIE, cookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

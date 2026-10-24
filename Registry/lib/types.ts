@@ -28,6 +28,8 @@ export interface UserDoc {
   /** Main-study sign-up: exact age and occupation or education (self-reported). */
   age?: number | null;
   occupation?: string | null;
+  /** Main study: whether the rater took the short tour before rating, or skipped it. */
+  training?: "done" | "skipped" | null;
   consentedAt?: number | null;
 }
 

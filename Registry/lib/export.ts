@@ -11,7 +11,14 @@ export interface ExportData {
   /** Self-reported reader details (public-link sign-up). Never names or contact details. */
   raterInfo?: Record<
     string,
-    { source: "account" | "public"; firstLanguage: boolean | null; ageGroup: string | null; age?: number | null; occupation?: string | null }
+    {
+      source: "account" | "public";
+      firstLanguage: boolean | null;
+      ageGroup: string | null;
+      age?: number | null;
+      occupation?: string | null;
+      training?: string | null;
+    }
   >;
   studies: Study[];
 }
@@ -261,7 +268,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
   // Main-study raters: self-reported details. Exact age and occupation go in internal exports only.
   const raterIds = [...new Set(ratings.map((r) => r.raterId))].sort((a, b) => alias(a).localeCompare(alias(b)));
   files["raters.csv"] = toCsv(
-    ["rater", "source", "first_language", "age_group", ...(internal ? ["age", "occupation"] : [])],
+    ["rater", "source", "first_language", "age_group", "training", ...(internal ? ["age", "occupation"] : [])],
     raterIds.map((uid) => {
       const info = data.raterInfo?.[uid];
       return {
@@ -269,6 +276,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
         source: info?.source ?? "",
         first_language: info?.firstLanguage ?? "",
         age_group: info?.ageGroup ?? "",
+        training: info?.training ?? "",
         age: info?.age ?? "",
         occupation: info?.occupation ?? "",
       };
