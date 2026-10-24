@@ -34,7 +34,6 @@ export function SetupView({ data }: { data: StudyPageData }) {
   const [maxPer, setMaxPer] = useState(String(MAIN_DEFAULTS.maxPerSample));
   const [busy, setBusy] = useState(false);
 
-  const criteria = data.criteria.filter((c) => c.active && c.rubricVersion === data.rubricVersion);
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const picked = [...selected].map((id) => rowById.get(id)).filter((r) => !!r);
   const anchors = picked.filter((r) => r.isAnchor).length;
@@ -58,11 +57,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
   }, []);
 
   const problem =
-    n === 0
-      ? "Choose the samples first"
-      : main && criteria.length === 0
-        ? "Add the rubric criteria first"
-        : null;
+    n === 0 ? "Choose the samples first" : null;
 
   async function start() {
     setBusy(true);
@@ -196,14 +191,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
               </div>
             </div>
             <div className="rounded-lg bg-muted/60 p-3 text-sm">
-              Rubric v{data.rubricVersion}: <b>{criteria.length}</b> active criteria.{" "}
-              <button
-                type="button"
-                className="text-primary underline-offset-4 hover:underline"
-                onClick={() => router.push(`${STUDY_PATH.rubric}?tab=criteria`)}
-              >
-                {criteria.length ? "Review" : "Add criteria"}
-              </button>
+              Questions are fixed (Rubric v1, in Sinhala): overall look, decoration, crossings-out, A1–A8 and legibility, each 1–10, plus optional weak-spot boxes.
             </div>
           </>
         )}

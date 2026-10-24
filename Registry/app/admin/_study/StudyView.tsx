@@ -46,10 +46,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
 
   const reader = useMemo(() => Object.fromEntries(data.readers.map((r) => [r.uid, r])), [data.readers]);
   const sample = useMemo(() => Object.fromEntries(data.samples.map((s) => [s.id, s])), [data.samples]);
-  const criteria = useMemo(
-    () => data.criteria.filter((c) => c.rubricVersion === (study.rubricVersion ?? 0)).sort((a, b) => a.order - b.order),
-    [data.criteria, study.rubricVersion],
-  );
+  const criteria = data.criteria;
   const name = (uid: string) => reader[uid]?.name ?? "Removed reader";
   const code = (sid: string) => (sample[sid] ? sampleLabel(sample[sid]) : "Removed sample");
 

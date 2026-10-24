@@ -1,18 +1,15 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, ClipboardList, Copy, Plus, Ruler } from "lucide-react";
+import { ArrowLeft, ChevronRight, ClipboardList, Copy, Plus } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { EmptyState, PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Criterion, type Script, type StudyType } from "@/lib/types";
+import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Script, type StudyType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { COPY } from "./copy";
-import { CriteriaEditor } from "./CriteriaEditor";
 import type { StudyPageData, SurveySummary } from "./load";
 import { SetupView } from "./SetupView";
 import { STATUS } from "./status";
@@ -23,11 +20,7 @@ export function SurveyList(props: {
   script: Script;
   type: StudyType;
   surveys: SurveySummary[];
-  /** Main study only: the rubric criteria tab. */
-  criteria?: { list: Criterion[]; version: number };
-  tab?: "surveys" | "criteria";
 }) {
-  const router = useRouter();
   const copy = COPY[props.type];
   const path = STUDY_PATH[props.type];
   const newButton = (
@@ -55,24 +48,7 @@ export function SurveyList(props: {
       <PageHeader title={`${SCRIPT_LABEL[props.script]} ${copy.listNoun}`} description={copy.description}>
         {newButton}
       </PageHeader>
-      {props.criteria ? (
-        <Tabs value={props.tab ?? "surveys"} onValueChange={(v) => router.replace(v === "criteria" ? `${path}?tab=criteria` : path)}>
-          <TabsList className="mb-5">
-            <TabsTrigger value="surveys">
-              <ClipboardList /> Surveys
-            </TabsTrigger>
-            <TabsTrigger value="criteria">
-              <Ruler /> Rubric criteria
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="surveys">{list}</TabsContent>
-          <TabsContent value="criteria">
-            <CriteriaEditor script={props.script} criteria={props.criteria.list} version={props.criteria.version} />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        list
-      )}
+      {list}
     </div>
   );
 }

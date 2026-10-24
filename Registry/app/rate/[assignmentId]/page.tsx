@@ -40,7 +40,7 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
   if (study.type === "perception") {
     return <PerceptionForm key={a.id} {...common} title={study.title} scale={study.overallScale} instructions={study.instructions} />;
   }
-  const criteria = await criteriaFor(study.script, study.rubricVersion ?? 1);
+  const criteria = criteriaFor(study.script);
 
   if (study.script === "si") {
     // Progress counts within the current 10-sample form; the block (text 1 / text 2) comes from the paragraph number.

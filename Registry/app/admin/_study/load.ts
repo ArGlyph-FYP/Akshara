@@ -1,6 +1,6 @@
 import "server-only";
 import { compareSamples } from "@/lib/codes";
-import { col, getSamplesByIds, getSettings, getUsersByIds, listAssignments, listCriteria, listRatings, listStudies } from "@/lib/data";
+import { col, criteriaFor, getSamplesByIds, getUsersByIds, listAssignments, listRatings, listStudies } from "@/lib/data";
 import { surveyStatus, type SurveyStatus } from "./status";
 import { datasetRows } from "@/lib/dataset";
 import type { SampleRow, StudyRef } from "@/lib/dataset-types";
@@ -54,8 +54,8 @@ export interface StudyPageData {
   /** Samples that can be added (not withdrawn or rejected). */
   rows: SampleRow[];
   refs: StudyRef[];
+  /** The fixed main-study criteria (A1–A8). */
   criteria: Criterion[];
-  rubricVersion: number;
   samples: { id: string; code: string; pageNo: number; part: number | null; isAnchor: boolean }[];
   readers: ReaderInfo[];
   items: ItemInfo[];
@@ -103,12 +103,7 @@ export async function loadSurveyList(script: Script, type: StudyType): Promise<S
 
 /** One survey's page (with `id`), or the "new survey" screen (without). */
 export async function loadStudyPage(script: Script, type: StudyType, id?: string): Promise<StudyPageData> {
-  const [all, { rows, studies: refs }, criteria, settings] = await Promise.all([
-    listStudies(script),
-    datasetRows(script),
-    listCriteria(script),
-    getSettings(),
-  ]);
+  const [all, { rows, studies: refs }] = await Promise.all([listStudies(script), datasetRows(script)]);
   const rounds = all.filter((s) => s.type === type);
   const study = (id && rounds.find((s) => s.id === id)) || null;
   const base = {
@@ -118,8 +113,7 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
     rounds: rounds.map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt })),
     rows: rows.filter((r) => r.status !== "excluded" && r.status !== "rejected"),
     refs,
-    criteria,
-    rubricVersion: settings.rubricVersion[script],
+    criteria: criteriaFor(script),
   };
   if (!study) return { ...base, samples: [], readers: [], items: [] };
 

@@ -4,8 +4,8 @@ This web app manages data collection for the Akshara study in both branches, Sin
 
 | Who | What they do |
 |---|---|
-| **Admins** (research team) | Three sidebar tabs: **Dataset** (upload, check, browse with filters, writers & consent, export), **Perception study** and **Main study** (one of each per script: pick samples, start, share the link, follow readers and responses; the main study also holds the rubric criteria). **Team access** in the sidebar adds or removes team logins |
-| **Readers and raters (study link)** | Open a study's link, enter name, optional contact, age group and first-language answer, confirm 18+ and consent, then rate the samples the system hands them. No account; progress is kept on that device. Perception: score, reasons and optional good / could-be-better boxes. Main: overall, legibility, every criterion and optional weak-region boxes. They never see participant codes |
+| **Admins** (research team) | Three sidebar tabs: **Dataset** (upload, check, browse with filters, writers & consent, export), **Perception study** and **Main study** (one of each per script: pick samples, start, share the link, follow readers and responses). The main-study questions are fixed in code (Rubric v1: O, flags, A1–A8, L, each 1–10; `lib/rubric/si.ts`). **Team access** in the sidebar adds or removes team logins |
+| **Readers and raters (study link)** | Open a study's link, enter name, age, occupation/education, contact and first-language answer, confirm 18+ and consent, then rate the samples the system hands them (main study: forms of 10, text 1 then text 2, least-rated first, with an optional one-minute tour and "rate 10 more" at the end). No account; progress is kept on that device. Perception: score, reasons and optional good / could-be-better boxes. Main (Sinhala, one page per sample): overall, decoration, crossings-out, A1–A8, legibility and optional weak-region boxes with issue tag and severity. They never see participant codes |
 
 Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (email + password; email link also works).
 
@@ -30,7 +30,7 @@ You need Node 20+ and **JDK 21+** for the Firebase emulators.
 cp .env.example .env.local      # already points at the emulators
 npm install
 npm run emulators               # terminal 1: auth, firestore, storage, UI on http://127.0.0.1:4000
-npm run seed:demo               # terminal 2: demo users, criteria, fake scans, a perception and a rubric study
+npm run seed:demo               # terminal 2: demo users, fake scans, a perception and a rubric study
 npm run dev                     # http://localhost:3000
 ```
 
@@ -71,7 +71,7 @@ Because Vercel caps request and response bodies at about 4.5 MB, scans never pas
    - **Single images** tab: one sample per file, named `SI-001.jpg`, `TA-014_p2.png`… (others: type the code). A thumbnail is made in the browser.
 3. **Dataset:** click a scan to check it (approve / reject) or make it a calibration anchor. Filter by *not rated / in progress / fully rated*, phase, check status or study.
 4. **Perception study** (Phase A, switch Sinhala/Tamil in the sidebar): choose 10–15 pilot samples (or select them in Dataset → *Add to study*), press **Start study** and share the link. By default each reader rates all samples; set "samples per reader" to hand out the least-rated samples first instead.
-5. **Main study** (Phase C): add the criteria on its *Rubric criteria* tab, choose the approved main samples (calibration anchors are shown first to every rater), set blinded repeats, start and share the link with the raters.
+5. **Main study** (Phase C): choose the approved main samples (questions are fixed: Rubric v1) (calibration anchors are shown first to every rater), set form size (10), target and max ratings per sample, blinded repeats, then start and share the link with the raters.
 6. **Study page:** status (open / no new readers / closed), readers with their details and progress, samples with response counts, every response with its boxes on the scan, CSV download. Remove a reader to delete spam or test responses.
 7. **Dataset → Export:** labels-only or public ZIP; for the full image set run `npm run export:prod -- --out ../data/akshara`.
 
@@ -83,7 +83,7 @@ samples.csv            sample_id, writer_id, script, phase, page_no, file, width
 ratings.csv            one row per rubric rating: study, rater alias, kind (normal | anchor | repeat), overall, legibility, duration
 criterion_scores.csv   long format: rating_id × criterion_key → score
 regions.json           COCO-style boxes (pixels) with criterion category, rater and note
-criteria.json          rubric definitions, all versions
+criteria.json          the fixed Rubric v1 criteria (A1–A8)
 perception_responses.csv  (optional) study, sample, rater alias, score, liked / disliked text, box counts
 perception_marks.json  (optional) COCO-style perception boxes: good | weak, rater and note
 studies.json           every study: type, scales, rubric version

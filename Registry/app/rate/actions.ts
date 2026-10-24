@@ -70,7 +70,7 @@ export async function submitRating(input: RatingInput) {
       rating = { ...base, legibility: null, criterionScores: {}, regions, likedText, dislikedText, rubricVersion: null };
     } else {
       if (!inScale(input.legibility, study.legibilityScale ?? { min: 1, max: 5 })) throw new Error("Choose a legibility score");
-      const criteria = await criteriaFor(study.script, study.rubricVersion ?? 1);
+      const criteria = criteriaFor(study.script);
       const scores: Record<string, number> = {};
       for (const c of criteria) {
         const v = input.criterionScores?.[c.id];

@@ -2,15 +2,14 @@ import "server-only";
 import type { Query } from "firebase-admin/firestore";
 import { compareSamples } from "./codes";
 import { adminDb } from "./firebase/admin";
+import { rubricCriteria } from "./rubric/criteria";
 import {
-  DEFAULT_SETTINGS,
   type Assignment,
   type Criterion,
   type Participant,
   type Rating,
   type Sample,
   type Script,
-  type Settings,
   type Study,
   type UserDoc,
 } from "./types";
@@ -21,8 +20,6 @@ export const col = {
   participants: () => db().collection("participants"),
   counters: () => db().collection("counters"),
   samples: () => db().collection("samples"),
-  criteria: () => db().collection("criteria"),
-  settings: () => db().collection("settings").doc("global"),
   assignments: () => db().collection("assignments"),
   ratings: () => db().collection("ratings"),
   studies: () => db().collection("studies"),
@@ -31,12 +28,6 @@ export const col = {
 async function all<T>(q: Query, withId = true): Promise<T[]> {
   const snap = await q.get();
   return snap.docs.map((d) => (withId ? ({ id: d.id, ...d.data() } as T) : (d.data() as T)));
-}
-
-export async function getSettings(): Promise<Settings> {
-  const snap = await col.settings().get();
-  const s = (snap.data() ?? {}) as Partial<Settings>;
-  return { ...DEFAULT_SETTINGS, ...s, rubricVersion: { ...DEFAULT_SETTINGS.rubricVersion, ...s.rubricVersion } };
 }
 
 export async function listUsers(): Promise<(UserDoc & { uid: string })[]> {
@@ -84,26 +75,9 @@ export async function getUsersByIds(uids: string[]): Promise<(UserDoc & { uid: s
   return out;
 }
 
-export async function listCriteria(script?: Script, onlyActive = false): Promise<Criterion[]> {
-  let q: Query = col.criteria();
-  if (script) q = q.where("script", "==", script);
-  const rows = await all<Criterion>(q);
-  return rows
-    .filter((c) => !onlyActive || c.active)
-    .sort((a, b) => a.script.localeCompare(b.script) || a.rubricVersion - b.rubricVersion || a.order - b.order);
-}
-
-/** Active criteria for the current rubric version of a script, in display order. */
-export async function currentCriteria(script: Script): Promise<{ version: number; criteria: Criterion[] }> {
-  const settings = await getSettings();
-  const version = settings.rubricVersion[script];
-  const criteria = (await listCriteria(script, true)).filter((c) => c.rubricVersion === version);
-  return { version, criteria };
-}
-
-/** Active criteria of one rubric version (rubric studies pin the version they were created with). */
-export async function criteriaFor(script: Script, version: number): Promise<Criterion[]> {
-  return (await listCriteria(script, true)).filter((c) => c.rubricVersion === version);
+/** The fixed main-study criteria (A1–A8, Rubric v1). */
+export function criteriaFor(script: Script): Criterion[] {
+  return rubricCriteria(script);
 }
 
 export async function listAssignments(

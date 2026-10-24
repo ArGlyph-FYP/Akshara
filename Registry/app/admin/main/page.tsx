@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { currentCriteria, listCriteria } from "@/lib/data";
 import { currentScript } from "@/lib/script";
 import { loadSurveyList } from "../_study/load";
 import { SurveyList } from "../_study/StudyPage";
@@ -14,14 +13,6 @@ export default async function MainStudySurveys({ searchParams }: { searchParams:
   if (q.new) redirect("/admin/main/new");
   const s = await requireAdmin();
   const script = await currentScript(s.user);
-  const [surveys, criteria, { version }] = await Promise.all([loadSurveyList(script, "rubric"), listCriteria(script), currentCriteria(script)]);
-  return (
-    <SurveyList
-      script={script}
-      type="rubric"
-      surveys={surveys}
-      criteria={{ list: criteria, version }}
-      tab={q.tab === "criteria" ? "criteria" : "surveys"}
-    />
-  );
+  const surveys = await loadSurveyList(script, "rubric");
+  return <SurveyList script={script} type="rubric" surveys={surveys} />;
 }

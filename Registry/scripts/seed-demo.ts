@@ -5,7 +5,7 @@ import { deflateSync } from "node:zlib";
 import { planAllToAll, planAssignments } from "../lib/assign";
 import { newId, newWriterId, formatCode } from "../lib/codes";
 import { seededRandom } from "../lib/random";
-import type { Assignment, Criterion, Participant, Phase, Sample, Script, Study, UserDoc } from "../lib/types";
+import type { Assignment, Participant, Phase, Sample, Script, Study, UserDoc } from "../lib/types";
 import { auth, bucket, db } from "./admin-app";
 
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
@@ -87,23 +87,12 @@ async function user(email: string, displayName: string, role: UserDoc["role"], s
   return u.uid;
 }
 
-const DEMO_CRITERIA: Omit<Criterion, "id" | "script">[] = [
-  { rubricVersion: 1, key: "letter_formation", labelEn: "Letter formation", labelLocal: "", description: "DEMO: Are characters complete and well shaped, with vowel signs attached correctly?", level: "akshara", scaleMin: 1, scaleMax: 5, active: true, order: 1 },
-  { rubricVersion: 1, key: "word_spacing", labelEn: "Word spacing & proportion", labelLocal: "", description: "DEMO: Even spacing and consistent letter size within words.", level: "word", scaleMin: 1, scaleMax: 5, active: true, order: 2 },
-  { rubricVersion: 1, key: "baseline", labelEn: "Baseline alignment", labelLocal: "", description: "DEMO: Do lines stay straight and level?", level: "line", scaleMin: 1, scaleMax: 5, active: true, order: 3 },
-  { rubricVersion: 1, key: "layout", labelEn: "Page layout", labelLocal: "", description: "DEMO: Margins and line spacing.", level: "paragraph", scaleMin: 1, scaleMax: 5, active: true, order: 4 },
-];
-
 async function main() {
   console.log("Seeding emulator…");
   const adminUid = await user("admin@akshara.test", "Demo Admin", "admin", ["si", "ta"]);
   for (let i = 1; i <= 3; i++) await user(`rater${i}.si@akshara.test`, `Sinhala rater ${i}`, "rater", ["si"]);
   await user("rater1.ta@akshara.test", "Tamil rater 1", "rater", ["ta"]);
   await db.collection("counters").doc("raters").set({ nextNumber: aliasN });
-
-  for (const script of ["si", "ta"] as Script[]) {
-    for (const c of DEMO_CRITERIA) await db.collection("criteria").doc(newId()).set({ ...c, script });
-  }
 
   const plan: { script: Script; pilot: number; main: number }[] = [
     { script: "si", pilot: 4, main: 8 },
@@ -146,7 +135,7 @@ async function main() {
       mode: "manual",
     },
     {
-      study: { script: "si", type: "rubric", title: "Sinhala main study (demo)", instructions: "", sampleIds: siMain.map((s) => s.id), open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, publicToken: "demo-si-main", publicOpen: true, perReader: null, repeatPct: 10, createdAt: Date.now() + 1 },
+      study: { script: "si", type: "rubric", title: "Sinhala main study (demo)", instructions: "", sampleIds: siMain.map((s) => s.id), open: true, overallScale: { min: 1, max: 10 }, legibilityScale: { min: 1, max: 10 }, rubricVersion: 1, publicToken: "demo-si-main", publicOpen: true, perReader: 10, repeatPct: 10, targetPerSample: 5, maxPerSample: 10, createdAt: Date.now() + 1 },
       samples: siMain,
       mode: "random",
     },

@@ -47,9 +47,7 @@ export async function GET(req: Request) {
     const samples = new Map(data.samples.map((x) => [x.id, x]));
     const main = study.type === "rubric";
     // Main study: one column per criterion, named by its key (a1…a8).
-    const crit = data.criteria
-      .filter((c) => c.script === study.script && c.rubricVersion === study.rubricVersion)
-      .sort((a, b) => a.order - b.order);
+    const crit = [...data.criteria].sort((a, b) => a.order - b.order);
     const rows = data.ratings
       .filter((r) => r.studyId === study.id)
       .sort((a, b) => a.submittedAt - b.submittedAt)

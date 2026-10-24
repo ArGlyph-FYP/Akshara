@@ -111,8 +111,8 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     })),
   );
 
-  const criteria = data.criteria
-    .filter((c) => scripts.has(c.script))
+  // The criteria are the same for both scripts (A1–A8), so they aren't filtered by script.
+  const criteria = [...data.criteria]
     .sort((a, b) => a.script.localeCompare(b.script) || a.rubricVersion - b.rubricVersion || a.order - b.order);
   const criterionById = new Map(criteria.map((c) => [c.id, c]));
 

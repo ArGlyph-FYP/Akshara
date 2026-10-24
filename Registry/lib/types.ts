@@ -101,13 +101,6 @@ export interface Scale {
   max: number;
 }
 
-export interface Settings {
-  /** Current rubric version per script; rubric studies pin the version they were created with. */
-  rubricVersion: Record<Script, number>;
-}
-
-export const DEFAULT_SETTINGS: Settings = { rubricVersion: { si: 1, ta: 1 } };
-
 export const DEFAULT_SCALES = {
   overall: { min: 1, max: 7 } as Scale,
   legibility: { min: 1, max: 5 } as Scale,
