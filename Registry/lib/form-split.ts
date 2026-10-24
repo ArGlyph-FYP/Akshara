@@ -6,7 +6,8 @@
  *  1. Find the printed horizontal rules; the writing box is the tallest gap between two of them.
  *  2. Find its left and right borders (long vertical lines).
  *  3. Inside the box, measure ink per row. The largest blank strip between ink is the paragraph break.
- *  4. Fit each paragraph's box to its ink, with a small margin.
+ *  4. Cut each paragraph between the box's side lines; paragraph 1 starts at the box's top line, paragraph 2 ends
+ *     just below its last ink.
  * Anything it can't find falls back to the form's printed layout and is flagged for checking.
  */
 
@@ -177,37 +178,18 @@ export function detectForm(gray: ArrayLike<number>, W: number, H: number): FormL
     split = { from: mid, to: mid };
   }
 
-  // 4. Fit each paragraph to its ink.
-  const first = bands[0]?.[0] ?? y0;
+  // 4. Cut the paragraphs. Both use the box's left and right lines as their sides (not the ink), so every crop has
+  // the same width and margins. Paragraph 1 starts at the box's top line; paragraph 2 ends just below its last ink
+  // (the box is taller than the writing). They meet at the blank line between them.
   const last = bands[bands.length - 1]?.[1] ?? y1;
   const padY = Math.round(H * 0.008);
   const halfGap = Math.floor((split.to - split.from) / 2);
   const pad = Math.min(padY, Math.max(0, halfGap));
   const ranges: [number, number][] = [
-    [clamp(first - padY, y0, y1), clamp(split.from + pad, y0, y1)],
+    [y0, clamp(split.from + pad, y0, y1)],
     [clamp(split.to - pad, y0, y1), clamp(last + padY, y0, y1)],
   ];
-  const padX = Math.round(W * 0.012);
-  const parts = ranges.map(([a, b]) => {
-    let lo = x1;
-    let hi = x0;
-    for (let x = x0; x < x1; x++) {
-      for (let y = a; y < b; y++) {
-        if (dark(x, y, INK_DARK)) {
-          if (x < lo) lo = x;
-          if (x > hi) hi = x;
-          break;
-        }
-      }
-    }
-    if (hi < lo) {
-      lo = x0;
-      hi = x1;
-    }
-    const xa = clamp(lo - padX, x0, x1);
-    const xb = clamp(hi + padX, x0, x1);
-    return { x: xa / W, y: a / H, w: (xb - xa) / W, h: Math.max(1, b - a) / H };
-  }) as [Box, Box];
+  const parts = ranges.map(([a, b]) => ({ x: x0 / W, y: a / H, w: (x1 - x0) / W, h: Math.max(1, b - a) / H })) as [Box, Box];
 
   return {
     parts,

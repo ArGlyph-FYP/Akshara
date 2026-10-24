@@ -44,13 +44,21 @@ describe("detectForm", () => {
     expect(inside(p1, 462)).toBe(false);
     expect(inside(p2, 463) && inside(p2, 579)).toBe(true);
     expect(inside(p2, 429)).toBe(false);
-    // Boxes stay inside the writing box borders.
+    // Both paragraphs take their sides from the box's left and right lines (just inside them), not from the ink,
+    // so paragraph 2 is as wide as paragraph 1 even though its writing is narrower.
     for (const b of r.parts) {
       expect(b.x * W).toBeGreaterThan(55);
+      expect(b.x * W).toBeLessThan(62);
       expect((b.x + b.w) * W).toBeLessThan(584);
+      expect((b.x + b.w) * W).toBeGreaterThan(576);
     }
-    // Paragraph 2 is narrower, so its box is too.
-    expect(p2.w).toBeLessThan(p1.w);
+    expect(p2.x).toBeCloseTo(p1.x, 5);
+    expect(p2.w).toBeCloseTo(p1.w, 5);
+    // Paragraph 1 starts at the box's top line (y 316), not at its first ink (y 330).
+    expect(p1.y * H).toBeGreaterThan(316);
+    expect(p1.y * H).toBeLessThan(322);
+    // Paragraph 2 ends shortly after its last ink, well above the box's bottom line (y 819).
+    expect((p2.y + p2.h) * H).toBeLessThan(600);
   });
 
   it("flags a page with no blank line between paragraphs", () => {
