@@ -5,8 +5,11 @@ import { col, getStudyByPublicToken } from "@/lib/data";
 import { adminAuth } from "@/lib/firebase/admin";
 import { assignPublicReader, publicLinkOpen } from "@/lib/public";
 import type { UserDoc } from "@/lib/types";
+import { surveyText } from "@/app/_survey/i18n";
 
 const AGE_GROUPS = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+/** Exports still carry an age group, so it is derived from the exact age. */
+const ageGroupOf = (age: number) => AGE_GROUPS[age < 25 ? 0 : age < 35 ? 1 : age < 45 ? 2 : age < 55 ? 3 : age < 65 ? 4 : 5];
 
 /**
  * Public-link sign-up. The browser signs in anonymously with Firebase and posts its ID token with the
@@ -18,13 +21,15 @@ export async function POST(req: Request) {
     token?: string;
     name?: string;
     contact?: string;
-    ageGroup?: string;
+    age?: number;
+    occupation?: string;
     nativeReader?: boolean;
     adult?: boolean;
     consent?: boolean;
   };
   const study = await getStudyByPublicToken(String(body.token ?? ""));
   if (!publicLinkOpen(study)) return NextResponse.json({ error: "This survey link is closed." }, { status: 404 });
+  const t = surveyText(study.script);
 
   let decoded;
   try {
@@ -43,10 +48,14 @@ export async function POST(req: Request) {
 
   if (!existing) {
     const name = String(body.name ?? "").trim().slice(0, 80);
-    if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
-    if (!body.adult || !body.consent) return NextResponse.json({ error: "You must be 18 or older and agree to take part." }, { status: 400 });
+    const occupation = String(body.occupation ?? "").trim().slice(0, 120);
+    const contact = String(body.contact ?? "").trim().slice(0, 120);
+    const age = Number(body.age);
+    if (!name || !occupation || !contact) return NextResponse.json({ error: t.required }, { status: 400 });
+    if (!Number.isInteger(age) || age < 18 || age > 100) return NextResponse.json({ error: t.ageError }, { status: 400 });
+    if (!body.adult || !body.consent) return NextResponse.json({ error: t.required }, { status: 400 });
     const doc: UserDoc = {
-      email: String(body.contact ?? "").trim().slice(0, 120),
+      email: contact,
       displayName: name,
       role: "rater",
       scripts: [study.script],
@@ -55,7 +64,9 @@ export async function POST(req: Request) {
       createdAt: Date.now(),
       public: true,
       nativeReader: typeof body.nativeReader === "boolean" ? body.nativeReader : null,
-      ageGroup: AGE_GROUPS.includes(String(body.ageGroup)) ? String(body.ageGroup) : null,
+      ageGroup: ageGroupOf(age),
+      age,
+      occupation,
       consentedAt: Date.now(),
     };
     await ref.set(doc);
@@ -64,7 +75,9 @@ export async function POST(req: Request) {
   }
 
   const items = await assignPublicReader(study, decoded.uid);
-  if (items === 0) return NextResponse.json({ error: "There is nothing to rate in this survey yet." }, { status: 409 });
+  if (items === 0) {
+    return NextResponse.json({ error: study.type === "rubric" ? t.allFull : t.nothingToRate }, { status: 409 });
+  }
 
   const expiresIn = SESSION_DAYS * 24 * 60 * 60 * 1000;
   const cookie = await adminAuth().createSessionCookie(String(body.idToken), { expiresIn });

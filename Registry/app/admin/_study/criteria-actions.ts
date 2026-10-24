@@ -5,6 +5,7 @@ import { num, run, str, type ActionResult } from "@/lib/action";
 import { assertAdmin } from "@/lib/auth";
 import { newId } from "@/lib/codes";
 import { col, db, getSettings, listCriteria } from "@/lib/data";
+import { CRITERIA as SI_CRITERIA } from "@/lib/rubric/si";
 import { LEVELS, type Criterion, type Level, type Script } from "@/lib/types";
 
 function script(fd: FormData): Script {
@@ -83,5 +84,39 @@ export async function newRubricVersion(_: ActionResult, fd: FormData) {
     await batch.commit();
     revalidatePath("/admin/main");
     return `Now on v${next} (${toCopy.length} criteria copied). Raters see v${next} from their next item.`;
+  });
+}
+
+/**
+ * Starts rubric version N+1 with exactly the eight Rubric v1 criteria (A1–A8, 1–10 each).
+ * The Sinhala form text (what to look for, band descriptions) is matched to them by key (a1…a8).
+ */
+export async function applyAksharaRubric(_: ActionResult, fd: FormData) {
+  return run(async () => {
+    await assertAdmin();
+    const sc = script(fd);
+    const settings = await getSettings();
+    const next = settings.rubricVersion[sc] + 1;
+    const batch = db().batch();
+    SI_CRITERIA.forEach((c, i) => {
+      const doc: Omit<Criterion, "id"> = {
+        script: sc,
+        rubricVersion: next,
+        key: c.key,
+        labelEn: `${c.code} ${c.labelEn}`,
+        labelLocal: sc === "si" ? c.label : "",
+        description: sc === "si" ? c.lookFor : "",
+        level: "paragraph",
+        scaleMin: 1,
+        scaleMax: 10,
+        active: true,
+        order: i + 1,
+      };
+      batch.set(col.criteria().doc(newId()), doc);
+    });
+    batch.set(col.settings(), { rubricVersion: { ...settings.rubricVersion, [sc]: next } }, { merge: true });
+    await batch.commit();
+    revalidatePath("/admin/main");
+    return `Now on v${next} with A1–A8 (1–10). New surveys use it; existing surveys keep their version.`;
   });
 }

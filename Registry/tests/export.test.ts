@@ -67,7 +67,7 @@ const data: ExportData = {
     sample("p1", "SI-001", { phase: "pilot", status: "uploaded" }),
   ],
   ratings: [
-    rating("r1", "s1"),
+    rating("r1", "s1", { decoration: "present_ok", alterations: "1-2", batch: 1, position: 3 }),
     rating("r2", "s2"),
     rating("r3", "s3", { script: "ta" }),
     rating("q1", "p1", {
@@ -87,7 +87,7 @@ const data: ExportData = {
     { id: "c1", script: "si", rubricVersion: 1, key: "baseline", labelEn: "Baseline", labelLocal: "", description: "", level: "line", scaleMin: 1, scaleMax: 5, active: true, order: 1 },
   ],
   raterAliases: { uid1: "R01" },
-  raterInfo: { uid1: { source: "public", firstLanguage: true, ageGroup: "25-34" } },
+  raterInfo: { uid1: { source: "public", firstLanguage: true, ageGroup: "25-34", age: 29, occupation: "Teacher" } },
   studies: [
     { id: "st_rubric", script: "si", type: "rubric", title: "Main round", instructions: "", sampleIds: ["s1", "s3"], open: true, overallScale: { min: 1, max: 7 }, legibilityScale: { min: 1, max: 5 }, rubricVersion: 1, createdAt: 1 },
     { id: "st_pilot", script: "si", type: "perception", title: "Pilot perception", instructions: "", sampleIds: ["p1"], open: true, overallScale: { min: 1, max: 7 }, legibilityScale: null, rubricVersion: null, createdAt: 1 },
@@ -123,6 +123,26 @@ describe("buildExport", () => {
   it("filters by script and phase", () => {
     expect(buildExport(data, { ...opts, scripts: ["ta"] }).images.map((i) => i.sampleId)).toEqual(["s3"]);
     expect(buildExport(data, { ...opts, phases: ["pilot"], qcOnly: false }).images.map((i) => i.sampleId)).toEqual(["p1"]);
+  });
+
+  it("writes main-study flags, form and block columns", () => {
+    const csv = buildExport(data, opts).files["ratings.csv"];
+    const [head, ...rows] = csv.trim().split("\n");
+    const cols = head.split(",");
+    const r1 = rows.find((r) => r.startsWith("r1,"))!.split(",");
+    const at = (c: string) => r1[cols.indexOf(c)];
+    expect(at("decoration")).toBe("present_ok");
+    expect(at("alterations")).toBe("1-2");
+    expect(at("batch")).toBe("1");
+    expect(at("block")).toBe("1");
+    expect(at("position")).toBe("3");
+  });
+
+  it("keeps exact age and occupation out of public exports", () => {
+    expect(buildExport(data, opts).files["raters.csv"]).not.toContain("Teacher");
+    const internal = buildExport(data, { ...opts, mode: "internal" }).files["raters.csv"];
+    expect(internal).toContain("Teacher");
+    expect(internal).toContain("29");
   });
 
   it("converts regions to COCO pixel boxes", () => {

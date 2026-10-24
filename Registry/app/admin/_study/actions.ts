@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/auth";
 import { newId, newPublicToken } from "@/lib/codes";
 import { col, currentCriteria, db, getStudy, listAssignments, listRatings, listSamples } from "@/lib/data";
-import { DEFAULT_SCALES, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
+import { DEFAULT_SCALES, MAIN_DEFAULTS, MAIN_SCALE, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
 import type { SurveyStatus } from "./status";
 
 type Result<T = object> = ({ ok: true } & T) | { ok?: false; error: string };
@@ -17,6 +17,12 @@ function fail(e: unknown): { error: string } {
 function cleanPerReader(v: unknown): number | null {
   const n = Math.round(Number(v));
   return v !== null && v !== "" && Number.isFinite(n) && n > 0 ? Math.min(n, 500) : null;
+}
+
+/** Ratings per sample: a whole number 1–50, or null (no cap) when left empty. */
+function cleanPerSample(v: unknown): number | null {
+  const n = Math.round(Number(v));
+  return v !== null && v !== "" && v !== undefined && Number.isFinite(n) && n > 0 ? Math.min(n, 50) : null;
 }
 
 function cleanRepeatPct(v: unknown): number {
@@ -60,6 +66,9 @@ export async function startStudy(input: {
   sampleIds: string[];
   perReader: number | null;
   repeatPct: number;
+  /** Main study only. */
+  targetPerSample?: number | null;
+  maxPerSample?: number | null;
 }): Promise<Result<{ id: string }>> {
   try {
     await assertAdmin();
@@ -75,6 +84,7 @@ export async function startStudy(input: {
       rubricVersion = version;
     }
     const id = newId();
+    const main = input.type === "rubric";
     const doc: Omit<Study, "id"> = {
       script: input.script,
       type: input.type,
@@ -82,13 +92,19 @@ export async function startStudy(input: {
       instructions: String(input.instructions ?? "").slice(0, 4000),
       sampleIds: samples.map((s) => s.id),
       open: true,
-      overallScale: DEFAULT_SCALES.overall,
-      legibilityScale: input.type === "rubric" ? DEFAULT_SCALES.legibility : null,
+      overallScale: main ? MAIN_SCALE : DEFAULT_SCALES.overall,
+      legibilityScale: main ? MAIN_SCALE : null,
       rubricVersion,
       publicToken: newPublicToken(),
       publicOpen: true,
-      perReader: cleanPerReader(input.perReader),
-      repeatPct: input.type === "rubric" ? cleanRepeatPct(input.repeatPct) : null,
+      perReader: cleanPerReader(input.perReader) ?? (main ? MAIN_DEFAULTS.formSize : null),
+      repeatPct: main ? cleanRepeatPct(input.repeatPct) : null,
+      ...(main
+        ? {
+            targetPerSample: cleanPerSample(input.targetPerSample) ?? MAIN_DEFAULTS.targetPerSample,
+            maxPerSample: input.maxPerSample === undefined ? MAIN_DEFAULTS.maxPerSample : cleanPerSample(input.maxPerSample),
+          }
+        : {}),
       createdAt: Date.now(),
     };
     await col.studies().doc(id).set(doc);
@@ -117,7 +133,14 @@ export async function setStudyStatus(studyId: string, status: SurveyStatus): Pro
 
 export async function updateStudy(
   studyId: string,
-  patch: { title?: string; instructions?: string; perReader?: number | null; repeatPct?: number },
+  patch: {
+    title?: string;
+    instructions?: string;
+    perReader?: number | null;
+    repeatPct?: number;
+    targetPerSample?: number | null;
+    maxPerSample?: number | null;
+  },
 ): Promise<Result> {
   try {
     await assertAdmin();
@@ -131,6 +154,11 @@ export async function updateStudy(
     if (patch.instructions !== undefined) upd.instructions = patch.instructions.slice(0, 4000);
     if (patch.perReader !== undefined) upd.perReader = cleanPerReader(patch.perReader);
     if (patch.repeatPct !== undefined && study.type === "rubric") upd.repeatPct = cleanRepeatPct(patch.repeatPct);
+    if (study.type === "rubric") {
+      if (patch.perReader !== undefined) upd.perReader = cleanPerReader(patch.perReader) ?? MAIN_DEFAULTS.formSize;
+      if (patch.targetPerSample !== undefined) upd.targetPerSample = cleanPerSample(patch.targetPerSample) ?? MAIN_DEFAULTS.targetPerSample;
+      if (patch.maxPerSample !== undefined) upd.maxPerSample = cleanPerSample(patch.maxPerSample);
+    }
     await col.studies().doc(studyId).update(upd);
     refresh();
     return { ok: true };

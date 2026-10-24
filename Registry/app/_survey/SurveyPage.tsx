@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getStudyByPublicToken, listAssignments } from "@/lib/data";
-import { publicLinkOpen, usableStudySamples } from "@/lib/public";
-import { SCRIPT_LABEL, surveyPath, type Script } from "@/lib/types";
+import { formSize, publicLinkOpen, usableStudySamples } from "@/lib/public";
+import { surveyPath, type Script } from "@/lib/types";
+import { surveyText } from "./i18n";
 import { JoinForm } from "./JoinForm";
 import { Logo } from "@/components/Logo";
 
@@ -11,11 +12,12 @@ export async function SurveyPage({ script, token }: { script: Script; token: str
   const study = await getStudyByPublicToken(token);
   // A link with the wrong language prefix forwards to the right one.
   if (study && study.script !== script) redirect(surveyPath(study.script, token));
+  const t = surveyText(study?.script ?? script);
   if (!publicLinkOpen(study)) {
     return (
       <Shell>
-        <h1 className="text-xl font-semibold">This survey is closed</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Thank you for your interest in the Akshara study.</p>
+        <h1 className="text-xl font-semibold">{t.closedTitle}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t.closedBody}</p>
       </Shell>
     );
   }
@@ -25,10 +27,12 @@ export async function SurveyPage({ script, token }: { script: Script; token: str
     if (mine.length) redirect(`/rate/next?study=${study.id}`);
   }
   // What one new reader will get: anchors (main study) + their share of the samples + blinded repeats.
+  // Main study: one form of 10 (more can be asked for at the end).
   const usable = await usableStudySamples(study);
   const anchors = study.type === "rubric" ? usable.filter((s) => s.isAnchor).length : 0;
   const others = usable.length - anchors;
-  const share = study.perReader ? Math.min(study.perReader, others) : others;
+  const perReader = study.type === "rubric" ? formSize(study) : study.perReader;
+  const share = perReader ? Math.min(perReader, others) : others;
   const repeats = study.type === "rubric" ? Math.round(share * Math.min(50, study.repeatPct ?? 0) / 100) : 0;
   const count = anchors + share + repeats;
   return (
@@ -36,7 +40,6 @@ export async function SurveyPage({ script, token }: { script: Script; token: str
       <JoinForm
         token={token}
         title={study.title}
-        language={SCRIPT_LABEL[study.script]}
         script={study.script}
         type={study.type}
         instructions={study.instructions}

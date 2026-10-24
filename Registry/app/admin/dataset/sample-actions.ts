@@ -123,7 +123,7 @@ export interface SampleDetail {
     study: string;
     studyType: string;
     kind: string;
-    status: "pending" | "done";
+    status: "pending" | "done" | "skipped";
     overall?: number;
     legibility?: number | null;
     liked?: string;

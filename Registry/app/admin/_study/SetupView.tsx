@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { sampleLabel } from "@/lib/codes";
 import { PICK_KEY } from "@/lib/dataset-types";
-import { SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG } from "@/lib/types";
+import { MAIN_DEFAULTS, SCRIPT_LABEL, STUDY_PATH, SURVEY_LANG } from "@/lib/types";
 import { startStudy } from "./actions";
 import type { StudyPageData } from "./load";
 import { SamplePicker } from "./SamplePicker";
@@ -30,6 +30,8 @@ export function SetupView({ data }: { data: StudyPageData }) {
   const [instructions, setInstructions] = useState("");
   const [perReader, setPerReader] = useState("");
   const [repeatPct, setRepeatPct] = useState(10);
+  const [targetPer, setTargetPer] = useState(String(MAIN_DEFAULTS.targetPerSample));
+  const [maxPer, setMaxPer] = useState(String(MAIN_DEFAULTS.maxPerSample));
   const [busy, setBusy] = useState(false);
 
   const criteria = data.criteria.filter((c) => c.active && c.rubricVersion === data.rubricVersion);
@@ -37,7 +39,10 @@ export function SetupView({ data }: { data: StudyPageData }) {
   const picked = [...selected].map((id) => rowById.get(id)).filter((r) => !!r);
   const anchors = picked.filter((r) => r.isAnchor).length;
   const n = picked.length;
-  const per = perReader.trim() ? Math.min(Number(perReader) || n, n) : n;
+  const others = n - anchors;
+  const per = perReader.trim() ? Math.min(Number(perReader) || n, others) : main ? Math.min(MAIN_DEFAULTS.formSize, others) : others;
+  const text2 = picked.filter((r) => !r.isAnchor && r.part === 2).length;
+  const text1 = others - text2;
 
   // Samples chosen in the Dataset ("Add to study").
   useEffect(() => {
@@ -69,6 +74,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
       sampleIds: [...selected],
       perReader: perReader.trim() ? Number(perReader) : null,
       repeatPct,
+      ...(main ? { targetPerSample: targetPer.trim() ? Number(targetPer) : null, maxPerSample: maxPer.trim() ? Number(maxPer) : null } : {}),
     });
     setBusy(false);
     if (!res.ok) return toast.error(res.error);
@@ -107,6 +113,12 @@ export function SetupView({ data }: { data: StudyPageData }) {
                   · <Anchor className="inline size-3.5" /> {anchors} calibration anchor{anchors === 1 ? "" : "s"}, shown first to every reader
                 </span>
               )}
+              {main && (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · text 1: <b className="text-foreground tabular-nums">{text1}</b> · text 2: <b className="text-foreground tabular-nums">{text2}</b>
+                </span>
+              )}
             </p>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2">
               {picked.slice(0, 48).map((r) => (
@@ -140,21 +152,40 @@ export function SetupView({ data }: { data: StudyPageData }) {
         </div>
         <div>
           <Label htmlFor="st-per" className="mb-1.5">
-            Samples per reader
+            {main ? "Samples per form" : "Samples per reader"}
           </Label>
           <Input
             id="st-per"
             type="number"
             min={1}
             className="w-28"
-            placeholder={n ? `all ${n}` : "all"}
+            placeholder={main ? String(MAIN_DEFAULTS.formSize) : n ? `all ${n}` : "all"}
             value={perReader}
             onChange={(e) => setPerReader(e.target.value)}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Leave empty so everyone rates every sample. With a number, the least-rated samples go out first.</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {main
+              ? "Half text 1, half text 2, least-rated first. When raters finish a form they can ask for another."
+              : "Leave empty so everyone rates every sample. With a number, the least-rated samples go out first."}
+          </p>
         </div>
         {main && (
           <>
+            <div className="flex gap-4">
+              <div>
+                <Label htmlFor="st-target" className="mb-1.5">
+                  Target per sample
+                </Label>
+                <Input id="st-target" type="number" min={1} className="w-24" value={targetPer} onChange={(e) => setTargetPer(e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="st-max" className="mb-1.5">
+                  Max per sample
+                </Label>
+                <Input id="st-max" type="number" min={1} className="w-24" placeholder="no cap" value={maxPer} onChange={(e) => setMaxPer(e.target.value)} />
+              </div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">Ratings each sample should get, and the number at which it stops going out.</p>
             <div>
               <Label htmlFor="st-rep" className="mb-1.5">
                 Blinded repeats
@@ -181,7 +212,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
           <p className="mb-3 text-sm text-muted-foreground">
             {n ? (
               <>
-                Each reader rates <b className="text-foreground">{per}</b> sample{per === 1 ? "" : "s"}
+                Each {main ? "form has" : "reader rates"} <b className="text-foreground">{per}</b> sample{per === 1 ? "" : "s"}
                 {main && anchors > 0 && <> plus {anchors} anchor{anchors === 1 ? "" : "s"}</>}. You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.
               </>
             ) : (

@@ -25,6 +25,9 @@ export interface UserDoc {
   /** Self-reported at sign-up via a public link. */
   nativeReader?: boolean | null;
   ageGroup?: string | null;
+  /** Main-study sign-up: exact age and occupation or education (self-reported). */
+  age?: number | null;
+  occupation?: string | null;
   consentedAt?: number | null;
 }
 
@@ -108,6 +111,12 @@ export const DEFAULT_SCALES = {
   legibility: { min: 1, max: 5 } as Scale,
 };
 
+/** Main study (Rubric v1): O, L and every criterion on 1–10. */
+export const MAIN_SCALE: Scale = { min: 1, max: 10 };
+
+/** Main study defaults: samples per form, and ratings per sample (aim, and the point a sample stops going out). */
+export const MAIN_DEFAULTS = { formSize: 10, targetPerSample: 5, maxPerSample: 10 };
+
 /**
  * perception = Phase A perception study (score, open-text reasons, good/weak marks);
  * rubric = Phase C main study (overall, legibility, rubric criteria, weak regions).
@@ -136,6 +145,10 @@ export interface Study {
   perReader?: number | null;
   /** Main study: share (%) of each reader's items shown again later, blinded, for rater-consistency checks. */
   repeatPct?: number | null;
+  /** Main study: ratings each sample should reach (shown to admins). */
+  targetPerSample?: number | null;
+  /** Main study: a sample stops being handed out once it has this many ratings (null = no cap). */
+  maxPerSample?: number | null;
   createdAt: number;
 }
 
@@ -149,7 +162,10 @@ export interface Assignment {
   script: Script;
   kind: AssignmentKind;
   position: number;
-  status: "pending" | "done";
+  /** "skipped": the reader recognised the writer, so the item was left unrated. */
+  status: "pending" | "done" | "skipped";
+  /** Main study: which 10-sample form this item belongs to (1, 2, … when a reader asks for more). */
+  batch?: number;
   createdAt: number;
 }
 
@@ -168,6 +184,11 @@ export interface Region {
   w: number;
   h: number;
   note: string;
+  /** Main study boxes (annotation protocol): issue tag from the closed list, letter part (A1), severity, or a flag. */
+  issueTag?: string | null;
+  part?: string | null;
+  severity?: 2 | 3 | null;
+  flag?: string | null;
 }
 
 export interface Rating {
@@ -188,6 +209,12 @@ export interface Rating {
   likedText: string;
   dislikedText: string;
   comment: string;
+  /** Main study: decoration flag (D) and crossings-out / overwriting. */
+  decoration?: "none" | "present_ok" | "present_hurts" | null;
+  alterations?: "none" | "1-2" | "3+" | null;
+  /** Main study: the reader's form number and the item's place in their queue. */
+  batch?: number | null;
+  position?: number | null;
   durationMs: number;
   rubricVersion: number | null;
   submittedAt: number;

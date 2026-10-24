@@ -1,6 +1,6 @@
 "use client";
 
-import { GitBranchPlus, Pencil, Plus } from "lucide-react";
+import { GitBranchPlus, ListChecks, Pencil, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirm } from "@/components/admin/Confirm";
@@ -15,7 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { act } from "@/lib/client-action";
 import { LEVELS, SCRIPT_LABEL, type Criterion, type Level, type Script } from "@/lib/types";
-import { addCriterion, newRubricVersion, updateCriterion } from "./criteria-actions";
+import { addCriterion, applyAksharaRubric, newRubricVersion, updateCriterion } from "./criteria-actions";
 
 type Draft = {
   id?: string;
@@ -38,6 +38,7 @@ export function CriteriaEditor({ script, criteria, version }: { script: Script; 
   const [confirmDialog, ask] = useConfirm();
   const current = criteria.filter((c) => c.rubricVersion === version).sort((a, b) => a.order - b.order);
   const older = criteria.filter((c) => c.rubricVersion !== version);
+  const onAkshara = current.filter((c) => c.active).map((c) => c.key).sort().join() === "a1,a2,a3,a4,a5,a6,a7,a8";
 
   async function save() {
     if (!draft) return;
@@ -57,6 +58,21 @@ export function CriteriaEditor({ script, criteria, version }: { script: Script; 
         </Badge>
         <span className="text-sm text-muted-foreground">Raters score every active criterion. A started main study keeps the version it began with.</span>
         <div className="ml-auto flex gap-2">
+          {!onAkshara && (
+            <Button
+              size="sm"
+              onClick={() =>
+                ask({
+                  title: "Use Akshara rubric v1?",
+                  description: `Starts v${version + 1} with the eight Rubric v1 criteria (A1–A8, each 1–10), with the Sinhala form text. Existing studies and ratings keep v${version}.`,
+                  confirmLabel: "Use rubric v1",
+                  onConfirm: async () => (await act(applyAksharaRubric, { script })) && router.refresh(),
+                })
+              }
+            >
+              <ListChecks /> Use Akshara rubric v1 (A1–A8)
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

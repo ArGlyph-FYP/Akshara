@@ -149,5 +149,6 @@ export async function ratersFor(script: Script) {
 export async function raterQueue(raterId: string, studyId: string) {
   const items = await listAssignments({ raterId, studyId });
   const next = items.find((a) => a.status === "pending") ?? null;
-  return { items, next, done: items.filter((a) => a.status === "done").length };
+  // Skipped items (reader recognised the writer) count as finished for progress.
+  return { items, next, done: items.filter((a) => a.status !== "pending").length };
 }

@@ -332,7 +332,7 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                                 {it.legibility != null && ` · L${it.legibility}`}
                               </Badge>
                             ) : (
-                              <Badge variant="outline">pending</Badge>
+                              <Badge variant="outline">{it.status}</Badge>
                             )}
                           </div>
                           <div className="text-xs text-muted-foreground">

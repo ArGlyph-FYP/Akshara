@@ -38,8 +38,18 @@ export function ResponsesDialog({
 }) {
   const cIndex = new Map(criteria.map((c, i) => [c.id, i]));
   const cLabel = (id: string) => criteria[cIndex.get(id) ?? -1]?.labelEn ?? "Unknown criterion";
-  const regionLabel = (r: Region) => (type === "perception" ? MARK_LABEL[r.tone ?? "weak"] : cLabel(r.criterionId));
-  const style = (r: Region) => (type === "perception" ? MARK_STYLE[r.tone ?? "weak"] : { color: colorFor(cIndex.get(r.criterionId) ?? 0), dashed: false });
+  const regionLabel = (r: Region) =>
+    type === "perception"
+      ? MARK_LABEL[r.tone ?? "weak"]
+      : r.flag
+        ? `Flag: ${r.flag.replace(/_/g, " ")}`
+        : [cLabel(r.criterionId), r.issueTag?.replace(/_/g, " "), r.part, r.severity && `severity ${r.severity}`].filter(Boolean).join(" · ");
+  const style = (r: Region) =>
+    type === "perception"
+      ? MARK_STYLE[r.tone ?? "weak"]
+      : r.flag
+        ? MARK_STYLE.weak
+        : { color: colorFor(cIndex.get(r.criterionId) ?? 0), dashed: false };
   const boxes = items
     .filter((i) => !focus || i.id === focus)
     .flatMap((i) => i.rating!.regions.map((r) => ({ ...r, ...style(r), label: `${readerName(i.raterId)}: ${r.note || regionLabel(r)}` })));
@@ -118,14 +128,20 @@ export function ResponsesDialog({
                         ))}
                     </ul>
                   )}
+                  {(r.decoration || r.alterations) && (
+                    <p className="text-xs text-muted-foreground">
+                      Decoration: {r.decoration?.replace("_", " ") ?? "–"} · Alterations: {r.alterations ?? "–"}
+                    </p>
+                  )}
                   {r.comment && <p className="text-muted-foreground">“{r.comment}”</p>}
-                  {r.regions.some((g) => g.note) && (
+                  {r.regions.some((g) => g.note || type === "rubric") && (
                     <ul className="list-inside list-disc text-xs text-muted-foreground">
                       {r.regions
-                        .filter((g) => g.note)
+                        .filter((g) => g.note || type === "rubric")
                         .map((g, k) => (
                           <li key={k}>
-                            {regionLabel(g)}: {g.note}
+                            {regionLabel(g)}
+                            {g.note && `: ${g.note}`}
                           </li>
                         ))}
                     </ul>

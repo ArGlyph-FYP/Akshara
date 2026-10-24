@@ -9,7 +9,10 @@ export interface ExportData {
   criteria: Criterion[];
   raterAliases: Record<string, string>;
   /** Self-reported reader details (public-link sign-up). Never names or contact details. */
-  raterInfo?: Record<string, { source: "account" | "public"; firstLanguage: boolean | null; ageGroup: string | null }>;
+  raterInfo?: Record<
+    string,
+    { source: "account" | "public"; firstLanguage: boolean | null; ageGroup: string | null; age?: number | null; occupation?: string | null }
+  >;
   studies: Study[];
 }
 
@@ -112,7 +115,28 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
   const perception = all.filter((r) => r.studyType === "perception");
 
   const ratingsCsv = toCsv(
-    ["rating_id", "study_id", "sample_id", "writer_id", "script", "rater", "kind", "overall", "legibility", "rubric_version", "n_regions", "duration_ms", "comment", "submitted_at"],
+    [
+      "rating_id",
+      "study_id",
+      "sample_id",
+      "writer_id",
+      "script",
+      "rater",
+      "kind",
+      "batch",
+      "block",
+      "position",
+      "overall",
+      "legibility",
+      "decoration",
+      "alterations",
+      "rubric_version",
+      "n_regions",
+      "duration_ms",
+      "seconds",
+      "comment",
+      "submitted_at",
+    ],
     ratings.map((r) => ({
       rating_id: r.id,
       study_id: r.studyId,
@@ -121,11 +145,17 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       script: r.script,
       rater: alias(r.raterId),
       kind: r.kind,
+      batch: r.batch ?? "",
+      block: r.studyType === "rubric" && r.kind !== "anchor" ? (sampleById.get(r.sampleId)!.part === 2 ? 2 : 1) : "",
+      position: r.position ?? "",
       overall: r.overall,
       legibility: r.legibility,
+      decoration: r.decoration ?? "",
+      alterations: r.alterations ?? "",
       rubric_version: r.rubricVersion,
       n_regions: r.regions.length,
       duration_ms: r.durationMs,
+      seconds: Math.round(r.durationMs / 100) / 10,
       comment: r.comment,
       submitted_at: iso(r.submittedAt),
     })),
@@ -172,6 +202,10 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
         rater: alias(r.raterId),
         kind: r.kind,
         note: g.note,
+        issue_tag: g.issueTag ?? null,
+        part: g.part ?? null,
+        severity: g.severity ?? null,
+        flag: g.flag ?? null,
       });
     }
   }
@@ -224,6 +258,23 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     "criteria.json": criteriaJson,
   };
 
+  // Main-study raters: self-reported details. Exact age and occupation go in internal exports only.
+  const raterIds = [...new Set(ratings.map((r) => r.raterId))].sort((a, b) => alias(a).localeCompare(alias(b)));
+  files["raters.csv"] = toCsv(
+    ["rater", "source", "first_language", "age_group", ...(internal ? ["age", "occupation"] : [])],
+    raterIds.map((uid) => {
+      const info = data.raterInfo?.[uid];
+      return {
+        rater: alias(uid),
+        source: info?.source ?? "",
+        first_language: info?.firstLanguage ?? "",
+        age_group: info?.ageGroup ?? "",
+        age: info?.age ?? "",
+        occupation: info?.occupation ?? "",
+      };
+    }),
+  );
+
   files["studies.json"] = JSON.stringify(
     data.studies
       .filter((st) => scripts.has(st.script))
@@ -235,6 +286,9 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
         overall_scale: [st.overallScale.min, st.overallScale.max],
         legibility_scale: st.legibilityScale ? [st.legibilityScale.min, st.legibilityScale.max] : null,
         rubric_version: st.rubricVersion,
+        form_size: st.type === "rubric" ? (st.perReader ?? null) : null,
+        target_per_sample: st.targetPerSample ?? null,
+        max_per_sample: st.maxPerSample ?? null,
         n_samples: st.sampleIds.filter((id) => sampleById.has(id)).length,
         created_at: iso(st.createdAt),
       })),

@@ -34,7 +34,7 @@ export default async function RateHome() {
 
       {studies.map((st) => {
         const mine = (byStudy.get(st.id) ?? []).sort((a, b) => a.position - b.position);
-        const done = mine.filter((a) => a.status === "done").length;
+        const done = mine.filter((a) => a.status !== "pending").length;
         const next = mine.find((a) => a.status === "pending");
         const Icon = st.type === "perception" ? MessageSquareText : ClipboardCheck;
         return (

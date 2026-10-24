@@ -14,6 +14,8 @@ export interface ReaderInfo {
   public: boolean;
   nativeReader: boolean | null;
   ageGroup: string | null;
+  age: number | null;
+  occupation: string | null;
   joinedAt: number;
 }
 
@@ -23,6 +25,8 @@ export interface ResponseInfo {
   liked: string;
   disliked: string;
   comment: string;
+  decoration: string | null;
+  alterations: string | null;
   regions: Region[];
   criterionScores: Record<string, number>;
   durationMs: number;
@@ -34,7 +38,8 @@ export interface ItemInfo {
   raterId: string;
   sampleId: string;
   kind: AssignmentKind;
-  status: "pending" | "done";
+  status: "pending" | "done" | "skipped";
+  batch: number;
   rating: ResponseInfo | null;
 }
 
@@ -142,6 +147,8 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
         public: !!u.public,
         nativeReader: u.nativeReader ?? null,
         ageGroup: u.ageGroup ?? null,
+        age: u.age ?? null,
+        occupation: u.occupation ?? null,
         joinedAt: firstItem.get(u.uid) ?? u.createdAt,
       }))
       .sort((a, b) => b.joinedAt - a.joinedAt),
@@ -153,6 +160,7 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
         sampleId: a.sampleId,
         kind: a.kind,
         status: a.status,
+        batch: a.batch ?? 1,
         rating: r
           ? {
               overall: r.overall,
@@ -160,6 +168,8 @@ export async function loadStudyPage(script: Script, type: StudyType, id?: string
               liked: r.likedText,
               disliked: r.dislikedText,
               comment: r.comment,
+              decoration: r.decoration ?? null,
+              alterations: r.alterations ?? null,
               regions: r.regions,
               criterionScores: r.criterionScores,
               durationMs: r.durationMs,

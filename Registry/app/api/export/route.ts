@@ -45,6 +45,11 @@ export async function GET(req: Request) {
     const study = data.studies.find((x) => x.id === q.get("study"));
     if (!study) return new Response("Study not found", { status: 404 });
     const samples = new Map(data.samples.map((x) => [x.id, x]));
+    const main = study.type === "rubric";
+    // Main study: one column per criterion, named by its key (a1…a8).
+    const crit = data.criteria
+      .filter((c) => c.script === study.script && c.rubricVersion === study.rubricVersion)
+      .sort((a, b) => a.order - b.order);
     const rows = data.ratings
       .filter((r) => r.studyId === study.id)
       .sort((a, b) => a.submittedAt - b.submittedAt)
@@ -58,18 +63,45 @@ export async function GET(req: Request) {
           writer_id: smp?.writerId ?? "",
           rater: data.raterAliases[r.raterId] ?? "R?",
           kind: r.kind,
+          batch: r.batch ?? "",
+          block: main && r.kind !== "anchor" ? (smp?.part === 2 ? 2 : 1) : "",
+          position: r.position ?? "",
           score: r.overall,
           legibility: r.legibility ?? "",
+          decoration: r.decoration ?? "",
+          alterations: r.alterations ?? "",
+          ...Object.fromEntries(crit.map((c) => [c.key, r.criterionScores[c.id] ?? ""])),
+          comment: r.comment,
           liked_text: r.likedText,
           disliked_text: r.dislikedText,
           n_regions: r.regions.length,
           // Perception marks as normalised (0–1) boxes: tone, x, y, w, h, note.
           marks_json: r.studyType === "perception" && r.regions.length ? JSON.stringify(r.regions.map(({ tone, x, y, w, h, note }) => ({ tone, x, y, w, h, note }))) : "",
+          // Main-study boxes, normalised (0–1): criterion key or flag, issue tag, part, severity, x, y, w, h, note.
+          regions_json:
+            main && r.regions.length
+              ? JSON.stringify(
+                  r.regions.map((g) => ({
+                    criterion: crit.find((c) => c.id === g.criterionId)?.key ?? null,
+                    flag: g.flag ?? null,
+                    issue_tag: g.issueTag ?? null,
+                    part: g.part ?? null,
+                    severity: g.severity ?? null,
+                    x: g.x,
+                    y: g.y,
+                    w: g.w,
+                    h: g.h,
+                    note: g.note,
+                  })),
+                )
+              : "",
           duration_ms: r.durationMs,
           submitted_at: new Date(r.submittedAt).toISOString(),
         };
       });
-    const cols = ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
+    const cols = main
+      ? ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "batch", "block", "position", "score", "decoration", "alterations", ...crit.map((c) => c.key), "legibility", "comment", "n_regions", "regions_json", "duration_ms", "submitted_at"]
+      : ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
     const slug = study.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     return new Response(toCsv(cols, rows), {
       headers: {

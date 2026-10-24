@@ -33,7 +33,16 @@ export async function loadExportData(db: Firestore) {
     raterInfo: Object.fromEntries(
       users.docs.map((d) => {
         const u = d.data() as UserDoc;
-        return [d.id, { source: u.public ? "public" : "account", firstLanguage: u.nativeReader ?? null, ageGroup: u.ageGroup ?? null }];
+        return [
+          d.id,
+          {
+            source: u.public ? "public" : "account",
+            firstLanguage: u.nativeReader ?? null,
+            ageGroup: u.ageGroup ?? null,
+            age: u.age ?? null,
+            occupation: u.occupation ?? null,
+          },
+        ];
       }),
     ),
     studies: studies.docs.map((d) => ({ id: d.id, ...d.data() }) as Study),

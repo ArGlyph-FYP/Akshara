@@ -206,3 +206,131 @@ export function planForNewReader(input: {
   const base = input.existing.filter((a) => a.raterId === input.readerId).reduce((m, a) => Math.max(m, a.position), -1) + 1;
   return seq.map((x, i) => ({ raterId: input.readerId, sampleId: x.sampleId, kind: x.kind, position: base + i }));
 }
+
+export interface BatchSample {
+  id: string;
+  isAnchor: boolean;
+  /** Paragraph number of a split form page: 1 = text 1, 2 = text 2 (null = whole page, treated as text 1). */
+  part: number | null;
+  writerId: string;
+}
+
+/** Items of a study, as far as coverage is concerned. */
+export interface CoverageItem {
+  raterId: string;
+  sampleId: string;
+  kind: AssignmentKind;
+  status: "pending" | "done" | "skipped";
+  position: number;
+  createdAt: number;
+  batch?: number;
+}
+
+export interface BatchItem extends NewAssignment {
+  batch: number;
+}
+
+/** Pending items older than this no longer hold a sample's place (the reader most likely left). */
+export const STALE_PENDING_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * How many readers each sample has: done ratings, plus pending items handed out recently.
+ * Repeats and anchors don't count, and skipped items (reader recognised the writer) don't either.
+ */
+export function sampleCoverage(items: CoverageItem[], now: number): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const a of items) {
+    if (a.kind !== "normal") continue;
+    if (a.status === "skipped") continue;
+    if (a.status === "pending" && now - a.createdAt > STALE_PENDING_MS) continue;
+    out.set(a.sampleId, (out.get(a.sampleId) ?? 0) + 1);
+  }
+  return out;
+}
+
+/**
+ * Main study: plans one reader's next form (default 10 samples).
+ * - Half text 1 (part 1), half text 2 (part 2); if one text runs short the other fills in.
+ * - Least-covered samples first, random among ties; samples at `maxPerSample` are not handed out.
+ * - Avoids both paragraphs of one writer in the same form when other samples are available.
+ * - Order: calibration anchors (first form only), then the text-1 block, then the text-2 block, each shuffled.
+ *   A share of items (`repeatFraction`) is shown again, blinded, at the end of its own block.
+ */
+export function planBatch(input: {
+  samples: BatchSample[];
+  readerId: string;
+  /** Every item of the study (all readers). */
+  existing: CoverageItem[];
+  batchSize: number;
+  maxPerSample: number | null;
+  seed: string;
+  repeatFraction?: number;
+  now: number;
+}): BatchItem[] {
+  const rand = seededRandom(input.seed);
+  const coverage = sampleCoverage(input.existing, input.now);
+  const mineAll = input.existing.filter((a) => a.raterId === input.readerId);
+  const had = new Set(mineAll.map((a) => a.sampleId));
+  const batch = mineAll.reduce((m, a) => Math.max(m, a.batch ?? 1), 0) + 1;
+  const base = mineAll.reduce((m, a) => Math.max(m, a.position), -1) + 1;
+  const size = Math.max(1, Math.floor(input.batchSize));
+  const cap = input.maxPerSample && input.maxPerSample > 0 ? input.maxPerSample : Infinity;
+
+  const anchors = batch === 1 ? input.samples.filter((s) => s.isAnchor && !had.has(s.id)) : [];
+  const open = input.samples
+    .filter((s) => !s.isAnchor && !had.has(s.id) && (coverage.get(s.id) ?? 0) < cap)
+    .map((s) => ({ s, cov: coverage.get(s.id) ?? 0, tie: rand() }))
+    .sort((a, b) => a.cov - b.cov || a.tie - b.tie)
+    .map((x) => x.s);
+  const text1 = open.filter((s) => s.part !== 2);
+  const text2 = open.filter((s) => s.part === 2);
+
+  const writers = new Set<string>();
+  const picked = new Set<string>();
+  /** Takes up to n from a list in order, skipping writers already in the form unless `allowSameWriter`. */
+  const take = (list: BatchSample[], n: number, allowSameWriter: boolean) => {
+    const out: BatchSample[] = [];
+    for (const s of list) {
+      if (out.length >= n) break;
+      if (picked.has(s.id)) continue;
+      if (!allowSameWriter && writers.has(s.writerId)) continue;
+      out.push(s);
+      picked.add(s.id);
+      writers.add(s.writerId);
+    }
+    return out;
+  };
+  const half1 = Math.ceil(size / 2);
+  const half2 = size - half1;
+  const a1 = take(text1, half1, false);
+  const a2 = take(text2, half2, false);
+  const missing = () => size - a1.length - a2.length;
+  // Still short: allow the same writer, then let the other text fill the gap.
+  a1.push(...take(text1, half1 - a1.length, true));
+  a2.push(...take(text2, half2 - a2.length, true));
+  for (const [list, got] of [[text1, a1], [text2, a2]] as const) {
+    got.push(...take(list, missing(), false));
+    got.push(...take(list, missing(), true));
+  }
+
+  const block1 = shuffle(a1.map((s) => s.id), rand);
+  const block2 = shuffle(a2.map((s) => s.id), rand);
+  const normals = [...block1, ...block2];
+  if (normals.length === 0) return [];
+  // Repeats come from the start of each block so a few items sit between an item and its repeat.
+  const early = [...block1.slice(0, Math.max(0, block1.length - 2)), ...block2.slice(0, Math.max(0, block2.length - 2))];
+  const repeatCount = Math.min(early.length, Math.round(normals.length * Math.min(Math.max(input.repeatFraction ?? 0, 0), 0.5)));
+  const repeats = new Set(shuffle(early, rand).slice(0, repeatCount));
+
+  type Step = { sampleId: string; kind: AssignmentKind };
+  const blockSeq = (ids: string[]): Step[] => [
+    ...ids.map((id) => ({ sampleId: id, kind: "normal" as const })),
+    ...ids.filter((id) => repeats.has(id)).map((id) => ({ sampleId: id, kind: "repeat" as const })),
+  ];
+  const seq: Step[] = [
+    ...anchors.map((s) => ({ sampleId: s.id, kind: "anchor" as const })),
+    ...blockSeq(block1),
+    ...blockSeq(block2),
+  ];
+  return seq.map((x, i) => ({ raterId: input.readerId, sampleId: x.sampleId, kind: x.kind, position: base + i, batch }));
+}

@@ -9,18 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { clientAuth } from "@/lib/firebase/client";
 import type { Script, StudyType } from "@/lib/types";
 import { joinAsSelf } from "./actions";
+import { surveyText } from "./i18n";
 
-const AGE_GROUPS = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
-const GREETING: Record<Script, string> = { si: "ආයුබෝවන්!", ta: "வணக்கம்!" };
 
 export function JoinForm(props: {
   token: string;
   title: string;
-  language: string;
   script: Script;
   type: StudyType;
   instructions: string;
@@ -28,15 +25,20 @@ export function JoinForm(props: {
   signedInAs: string | null;
 }) {
   const router = useRouter();
+  const t = surveyText(props.script);
   const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+  const [occupation, setOccupation] = useState("");
   const [contact, setContact] = useState("");
-  const [ageGroup, setAgeGroup] = useState("");
   const [nativeReader, setNativeReader] = useState<"yes" | "no" | "">("");
   const [adult, setAdult] = useState(false);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const ready = name.trim() && nativeReader && adult && consent;
+  const ageNum = Number(age);
+  const ageOk = Number.isInteger(ageNum) && ageNum >= 18 && ageNum <= 100;
+  const ready = name.trim() && ageOk && occupation.trim() && contact.trim() && nativeReader && adult && consent;
+  const minutes = Math.max(5, Math.round(props.count * (props.type === "perception" ? 1.2 : 1.5)));
 
   async function post() {
     const auth = clientAuth();
@@ -49,8 +51,9 @@ export function JoinForm(props: {
           idToken: await auth.currentUser!.getIdToken(true),
           token: props.token,
           name,
+          age: ageNum,
+          occupation,
           contact,
-          ageGroup,
           nativeReader: nativeReader === "yes",
           adult,
           consent,
@@ -69,6 +72,7 @@ export function JoinForm(props: {
   }
 
   async function start() {
+    if (!ready) return setError(age && !ageOk ? t.ageError : t.required);
     setBusy(true);
     setError(null);
     try {
@@ -108,84 +112,69 @@ export function JoinForm(props: {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium text-primary">{GREETING[props.script]}</p>
+        <p className="text-sm font-medium text-primary">{t.greeting}</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{props.title}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {props.type === "perception" ? (
-            <>
-              A research study on how {props.language} handwriting looks. You&apos;ll see {props.count} handwriting
-              samples, one at a time. For each, give a score, say in your own words what makes it look good or bad,
-              and if you like, draw boxes around those parts of the page.
-            </>
-          ) : (
-            <>
-              You&apos;ll rate {props.count} {props.language} handwriting samples, one at a time: how good each looks
-              overall, how easy it is to read, and a few listed qualities. You can also box the weak parts.
-            </>
-          )}{" "}
-          It takes about {Math.max(5, Math.round(props.count * (props.type === "perception" ? 1.2 : 2.5)))} minutes.
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t.intro(props.type, props.count, minutes)}</p>
         {props.instructions && <p className="mt-3 rounded-lg bg-muted/60 p-3 text-sm whitespace-pre-line">{props.instructions}</p>}
       </div>
 
       <div className="space-y-4 rounded-xl border bg-card p-4">
         <div>
-          <Label htmlFor="join-name" className="mb-1.5">Your name</Label>
+          <Label htmlFor="join-name" className="mb-1.5">{t.name}</Label>
           <Input id="join-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
         </div>
+        <div className="grid gap-4 sm:grid-cols-[110px_1fr]">
+          <div>
+            <Label htmlFor="join-age" className="mb-1.5">{t.age}</Label>
+            <Input
+              id="join-age"
+              type="number"
+              inputMode="numeric"
+              min={18}
+              max={100}
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              aria-invalid={!!age && !ageOk}
+            />
+          </div>
+          <div>
+            <Label htmlFor="join-occ" className="mb-1.5">{t.occupation}</Label>
+            <Input id="join-occ" value={occupation} onChange={(e) => setOccupation(e.target.value)} placeholder={t.occupationHint} />
+          </div>
+        </div>
+        {age && !ageOk && <p className="-mt-2 text-xs text-destructive">{t.ageError}</p>}
         <div>
           <Label htmlFor="join-contact" className="mb-1.5">
-            Email or phone <span className="font-normal text-muted-foreground">(optional, only to contact you about the study)</span>
+            {t.contact}
           </Label>
-          <Input id="join-contact" value={contact} onChange={(e) => setContact(e.target.value)} />
+          <Input id="join-contact" value={contact} onChange={(e) => setContact(e.target.value)} autoComplete="tel" />
+          <p className="mt-1 text-xs text-muted-foreground">{t.contactHint}</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label className="mb-1.5">Age group</Label>
-            <Select value={ageGroup} onValueChange={setAgeGroup}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                {AGE_GROUPS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="mb-1.5">Is {props.language} your first language?</Label>
-            <RadioGroup value={nativeReader} onValueChange={(v) => setNativeReader(v as "yes" | "no")} className="flex h-8 gap-4">
-              <label className="flex items-center gap-1.5 text-sm">
-                <RadioGroupItem value="yes" /> Yes
-              </label>
-              <label className="flex items-center gap-1.5 text-sm">
-                <RadioGroupItem value="no" /> No
-              </label>
-            </RadioGroup>
-          </div>
+        <div>
+          <Label className="mb-1.5">{t.firstLanguage}</Label>
+          <RadioGroup value={nativeReader} onValueChange={(v) => setNativeReader(v as "yes" | "no")} className="flex h-8 gap-6">
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="yes" /> {t.yes}
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="no" /> {t.no}
+            </label>
+          </RadioGroup>
         </div>
         <label className="flex items-start gap-2 text-sm">
-          <Checkbox checked={adult} onCheckedChange={(v) => setAdult(!!v)} className="mt-0.5" /> I am 18 years old or older.
+          <Checkbox checked={adult} onCheckedChange={(v) => setAdult(!!v)} className="mt-0.5" /> {t.adult}
         </label>
         <label className="flex items-start gap-2 text-sm">
           <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} className="mt-0.5" />
-          <span>
-            I agree to take part. My answers may be used in research publications and in an anonymised research dataset;
-            my name and contact details are never published.
-          </span>
+          <span>{t.consent}</span>
         </label>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button className="h-10 w-full" disabled={!ready || busy} onClick={start}>
-        {busy && <Loader2 className="animate-spin" />} Start
+      <Button className="h-10 w-full" disabled={busy} onClick={start}>
+        {busy && <Loader2 className="animate-spin" />} {t.start}
       </Button>
-      <p className="text-center text-xs text-muted-foreground">
-        Your progress is saved on this device, so you can close the page and come back to this link later.
-      </p>
+      <p className="text-center text-xs text-muted-foreground">{t.resumeNote}</p>
     </div>
   );
 }

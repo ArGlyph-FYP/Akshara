@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { sampleLabel } from "@/lib/codes";
-import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Study } from "@/lib/types";
+import { MAIN_DEFAULTS, SCRIPT_LABEL, STUDY_PATH, surveyPath, type Study } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { addSamplesToStudy, deleteStudy, removeReader, removeSamplesFromStudy, setStudyStatus, updateStudy } from "./actions";
 import { COPY } from "./copy";
@@ -57,7 +57,19 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
   const pct = data.items.length ? Math.round((100 * done.length) / data.items.length) : 0;
   const bySample = (sid: string) => done.filter((i) => i.sampleId === sid && i.kind !== "repeat");
   const coverage = data.samples.map((s) => bySample(s.id).length);
-  const finished = data.readers.filter((r) => data.items.every((i) => i.raterId !== r.uid || i.status === "done")).length;
+  const finished = data.readers.filter((r) => data.items.every((i) => i.raterId !== r.uid || i.status !== "pending")).length;
+  // Main study: how many samples have reached the target number of ratings (and the cap, where they stop going out).
+  const target = study.targetPerSample ?? MAIN_DEFAULTS.targetPerSample;
+  const cap = study.maxPerSample === undefined ? MAIN_DEFAULTS.maxPerSample : study.maxPerSample;
+  const regular = data.samples.filter((s) => !s.isAnchor).map((s) => bySample(s.id).length);
+  const atTarget = regular.filter((n) => n >= target).length;
+  const low = Math.min(3, target);
+  const coverageBands = [
+    { label: `under ${low}`, n: regular.filter((n) => n < low).length },
+    ...(target > low ? [{ label: `${low}–${target - 1}`, n: regular.filter((n) => n >= low && n < target).length }] : []),
+    { label: cap ? `${target}–${cap - 1}` : `${target}+`, n: regular.filter((n) => n >= target && (!cap || n < cap)).length },
+    ...(cap ? [{ label: `full (${cap})`, n: regular.filter((n) => n >= cap).length }] : []),
+  ];
 
   async function call(p: Promise<{ ok?: boolean; error?: string }>, msg?: string) {
     const r = await p;
@@ -154,7 +166,11 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Readers joined" value={data.readers.length} />
         <Stat label="Finished" value={`${finished} / ${data.readers.length}`} tone={finished && finished === data.readers.length ? "good" : undefined} />
-        <Stat label="Readers per sample" value={coverage.length ? (Math.min(...coverage) === Math.max(...coverage) ? coverage[0] : `${Math.min(...coverage)}–${Math.max(...coverage)}`) : "–"} />
+        {main ? (
+          <Stat label={`Samples at target (${target}+ ratings)`} value={`${atTarget} / ${regular.length}`} tone={regular.length && atTarget === regular.length ? "good" : undefined} />
+        ) : (
+          <Stat label="Readers per sample" value={coverage.length ? (Math.min(...coverage) === Math.max(...coverage) ? coverage[0] : `${Math.min(...coverage)}–${Math.max(...coverage)}`) : "–"} />
+        )}
         <div className="rounded-xl border bg-card px-4 py-3">
           <div className="text-xs text-muted-foreground">Responses</div>
           <div className="mt-0.5 flex items-center gap-2">
@@ -163,6 +179,20 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
           </div>
         </div>
       </div>
+
+      {main && regular.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border bg-card px-4 py-2.5 text-sm">
+          <span className="text-muted-foreground">Ratings per sample:</span>
+          {coverageBands.map((b) => (
+            <span key={b.label}>
+              <b className="tabular-nums">{b.n}</b> <span className="text-muted-foreground">{b.label}</span>
+            </span>
+          ))}
+          <span className="ml-auto text-xs text-muted-foreground">
+            Forms of {study.perReader ?? MAIN_DEFAULTS.formSize}, least-rated first{cap ? `; a sample stops going out at ${cap}` : ""}.
+          </span>
+        </div>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -199,7 +229,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                 <tbody className="divide-y">
                   {data.readers.map((r) => {
                     const mine = data.items.filter((i) => i.raterId === r.uid);
-                    const d = mine.filter((i) => i.status === "done").length;
+                    const d = mine.filter((i) => i.status !== "pending").length;
                     return (
                       <tr key={r.uid}>
                         <td className="px-4 py-2.5">
@@ -210,7 +240,13 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                          {[r.nativeReader === true ? "First language" : r.nativeReader === false ? "Not first language" : null, r.ageGroup].filter(Boolean).join(" · ") ||
+                          {[
+                            r.age ? `${r.age} y` : r.ageGroup,
+                            r.occupation,
+                            r.nativeReader === true ? "First language" : r.nativeReader === false ? "Not first language" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") ||
                             (r.public ? "–" : "Login account")}
                         </td>
                         <td className="px-4 py-2.5">
@@ -290,9 +326,16 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {its.length} response{its.length === 1 ? "" : "s"}
+                      {main && !s.isAnchor && ` of ${target}`}
                       {avg !== null && ` · average ${avg.toFixed(1)}`}
+                      {main && s.part && ` · text ${s.part}`}
                     </div>
                   </div>
+                  {main && !s.isAnchor && (
+                    <Badge variant={its.length >= target ? "default" : "outline"} className="tabular-nums" title={`${its.length} of ${target} ratings`}>
+                      {its.length}/{target}
+                    </Badge>
+                  )}
                   <Button variant="outline" size="sm" disabled={!its.length} onClick={() => setViewing({ sampleId: s.id, itemId: null })}>
                     <Eye /> View
                   </Button>
@@ -531,18 +574,31 @@ function SettingsDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
   study: Study;
-  onSave: (patch: { title: string; instructions: string; perReader: number | null; repeatPct?: number }) => Promise<boolean>;
+  onSave: (patch: {
+    title: string;
+    instructions: string;
+    perReader: number | null;
+    repeatPct?: number;
+    targetPerSample?: number | null;
+    maxPerSample?: number | null;
+  }) => Promise<boolean>;
 }) {
   const [title, setTitle] = useState(study.title);
   const [instructions, setInstructions] = useState(study.instructions);
   const [perReader, setPerReader] = useState(study.perReader ? String(study.perReader) : "");
   const [repeatPct, setRepeatPct] = useState(study.repeatPct ?? 10);
+  const main = study.type === "rubric";
+  const capOf = (st: Study) => (st.maxPerSample === undefined ? String(MAIN_DEFAULTS.maxPerSample) : st.maxPerSample ? String(st.maxPerSample) : "");
+  const [targetPer, setTargetPer] = useState(String(study.targetPerSample ?? MAIN_DEFAULTS.targetPerSample));
+  const [maxPer, setMaxPer] = useState(capOf(study));
   useEffect(() => {
     if (!open) return;
     setTitle(study.title);
     setInstructions(study.instructions);
     setPerReader(study.perReader ? String(study.perReader) : "");
     setRepeatPct(study.repeatPct ?? 10);
+    setTargetPer(String(study.targetPerSample ?? MAIN_DEFAULTS.targetPerSample));
+    setMaxPer(capOf(study));
   }, [open, study]);
 
   return (
@@ -568,10 +624,34 @@ function SettingsDialog({
           <div className="flex flex-wrap gap-4">
             <div>
               <Label htmlFor="set-per" className="mb-1.5">
-                Samples per reader
+                {main ? "Samples per form" : "Samples per reader"}
               </Label>
-              <Input id="set-per" type="number" min={1} className="w-28" placeholder={`all ${study.sampleIds.length}`} value={perReader} onChange={(e) => setPerReader(e.target.value)} />
+              <Input
+                id="set-per"
+                type="number"
+                min={1}
+                className="w-28"
+                placeholder={main ? String(MAIN_DEFAULTS.formSize) : `all ${study.sampleIds.length}`}
+                value={perReader}
+                onChange={(e) => setPerReader(e.target.value)}
+              />
             </div>
+            {main && (
+              <>
+                <div>
+                  <Label htmlFor="set-target" className="mb-1.5">
+                    Target per sample
+                  </Label>
+                  <Input id="set-target" type="number" min={1} className="w-24" value={targetPer} onChange={(e) => setTargetPer(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="set-max" className="mb-1.5">
+                    Max per sample
+                  </Label>
+                  <Input id="set-max" type="number" min={1} className="w-24" placeholder="no cap" value={maxPer} onChange={(e) => setMaxPer(e.target.value)} />
+                </div>
+              </>
+            )}
             {study.type === "rubric" && (
               <div>
                 <Label htmlFor="set-rep" className="mb-1.5">
@@ -592,7 +672,9 @@ function SettingsDialog({
                 title,
                 instructions,
                 perReader: perReader.trim() ? Number(perReader) : null,
-                ...(study.type === "rubric" ? { repeatPct } : {}),
+                ...(main
+                  ? { repeatPct, targetPerSample: targetPer.trim() ? Number(targetPer) : null, maxPerSample: maxPer.trim() ? Number(maxPer) : null }
+                  : {}),
               });
               if (ok) onOpenChange(false);
             }}
