@@ -91,6 +91,8 @@ export function MainRatingForm(props: {
   const [drawMode, setDrawMode] = useState(false);
   /** Boxes the rater has hidden for now (by uid); hidden boxes are still saved. */
   const [hiddenUids, setHiddenUids] = useState<Set<number>>(new Set());
+  /** Whole layers (A1, A2, … or a flag) the rater has hidden for now. */
+  const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
   const nextUid = useRef(1);
   const [tag, setTag] = useState(criteria[0]?.id ?? `${FLAG_PREFIX}${FLAGS[0].value}`);
   /** How strongly boxes show over the scan (0 = hidden), and the last visible level for the eye toggle. */
@@ -110,6 +112,24 @@ export function MainRatingForm(props: {
   const tagColor = (t: string) =>
     t.startsWith(FLAG_PREFIX) ? MARK_STYLE.weak.color : colorFor(Math.max(0, criteria.findIndex((c) => c.id === t)));
   const regionTag = (r: Region) => (r.flag ? `${FLAG_PREFIX}${r.flag}` : r.criterionId);
+  const isHidden = (r: Mark) => hiddenUids.has(r.uid) || hiddenTags.has(regionTag(r));
+  /** Layers that have at least one box, in A1–A8 order then flags, with their box counts. */
+  const layers = [...new Set(regions.map(regionTag))]
+    .map((t) => ({ tag: t, count: regions.filter((r) => regionTag(r) === t).length }))
+    .sort((a, b) => layerOrder(a.tag) - layerOrder(b.tag));
+  function layerOrder(t: string) {
+    const i = criteria.findIndex((c) => c.id === t);
+    return i >= 0 ? i : criteria.length + FLAGS.findIndex((f) => `${FLAG_PREFIX}${f.value}` === t);
+  }
+  const layerLabel = (t: string) =>
+    t.startsWith(FLAG_PREFIX) ? (FLAGS.find((f) => `${FLAG_PREFIX}${f.value}` === t)?.label ?? t) : code(t);
+  const toggleLayer = (t: string) =>
+    setHiddenTags((h) => {
+      const n = new Set(h);
+      if (n.has(t)) n.delete(t);
+      else n.add(t);
+      return n;
+    });
   const showMarks = () => opacity === 0 && setOpacity(shownOpacity || 1);
   const next = () => router.push(`/rate/next?study=${props.studyId}`);
 
@@ -141,6 +161,13 @@ export function MainRatingForm(props: {
     const flag = tag.startsWith(FLAG_PREFIX) ? tag.slice(FLAG_PREFIX.length) : null;
     const uid = nextUid.current++;
     setRegions((r) => [...r, { uid, ...b, criterionId: flag ? "" : tag, flag, issueTag: null, part: null, severity: 2, note: "" }]);
+    // Drawing into a hidden layer shows that layer again, so the new box is visible.
+    setHiddenTags((h) => {
+      if (!h.has(tag)) return h;
+      const n = new Set(h);
+      n.delete(tag);
+      return n;
+    });
     setSelected(regions.length);
     showMarks();
   }
@@ -342,7 +369,7 @@ export function MainRatingForm(props: {
               color: tagColor(regionTag(r)),
               dashed: !!r.flag,
               label: `${boxLabel(r)}${r.severity === 3 && !r.flag ? " · 3" : ""}`,
-              hidden: hiddenUids.has(r.uid),
+              hidden: isHidden(r),
               dim: selected !== null && selected !== i,
             }))}
           />
@@ -356,10 +383,34 @@ export function MainRatingForm(props: {
                 <Eraser /> සියල්ල clear කරන්න
               </Button>
             </div>
+            <div className="flex flex-wrap items-center gap-1 border-b px-2.5 py-1.5" role="group" aria-label="Layers">
+              {layers.map(({ tag: t, count }) => {
+                const off = hiddenTags.has(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={!off}
+                    title={off ? "මෙම කොටු පෙන්වන්න" : "මෙම කොටු සඟවන්න"}
+                    onClick={() => toggleLayer(t)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs transition hover:bg-muted",
+                      off && "text-muted-foreground",
+                    )}
+                  >
+                    <Dot color={tagColor(t)} dashed={t.startsWith(FLAG_PREFIX)} />
+                    <span className={cn("font-semibold", off && "line-through")}>{layerLabel(t)}</span>
+                    <span className="tabular-nums text-muted-foreground">{count}</span>
+                    {off ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </button>
+                );
+              })}
+            </div>
             <ul className="divide-y">
               {regions.map((r, i) => {
                 const open = selected === i;
-                const hiddenNow = hiddenUids.has(r.uid);
+                const hiddenNow = isHidden(r);
+                const layerHidden = hiddenTags.has(regionTag(r));
                 const key = keyOf[r.criterionId];
                 const issue = r.flag ? null : ISSUE_TAGS[key]?.find((t) => t.value === r.issueTag)?.label;
                 return (
@@ -389,7 +440,13 @@ export function MainRatingForm(props: {
                         size="icon-sm"
                         aria-label={hiddenNow ? "පෙන්වන්න" : "සඟවන්න"}
                         title={hiddenNow ? "පෙන්වන්න" : "සඟවන්න"}
-                        onClick={() => toggleHidden(r.uid)}
+                        onClick={() => {
+                          // A box in a hidden layer: show the layer again, with this box visible.
+                          if (layerHidden) {
+                            toggleLayer(regionTag(r));
+                            if (hiddenUids.has(r.uid)) toggleHidden(r.uid);
+                          } else toggleHidden(r.uid);
+                        }}
                       >
                         {hiddenNow ? <EyeOff /> : <Eye />}
                       </Button>
