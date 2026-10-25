@@ -21,7 +21,8 @@
     "env:emulators": "cp .env.emulators .env.local && echo 'Local app now uses the EMULATORS (restart npm run dev)'",
     "env:prod": "cp .env.prod .env.local && echo 'Local app now uses the REAL akshara-fyp project (restart npm run dev)'",
     "cors:prod": "tsx --env-file=.env.prod scripts/set-cors.ts",
-    "delete-samples:prod": "tsx --env-file=.env.prod scripts/delete-samples.ts"
+    "delete-samples:prod": "tsx --env-file=.env.prod scripts/delete-samples.ts",
+    "test-data:prod": "tsx --env-file=.env.prod scripts/test-data.ts"
   },
   "dependencies": {
     "archiver": "^8.0.0",
