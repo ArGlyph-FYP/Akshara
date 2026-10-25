@@ -350,7 +350,8 @@ export function MainRatingForm(props: {
             ? "Move තෝරා රූපය ඇදගෙන යන්න. Zoom කිරීමට + / − බොත්තම් හෝ ඇඟිලි දෙක භාවිත කරන්න."
             : "අනිවාර්ය නොවේ. Zoom කිරීමට + / − බොත්තම් හෝ ඇඟිලි දෙක භාවිත කරන්න; රූපය ඇදගෙන යා හැක."}
         </p>
-        <div className="lg:min-h-[200px] lg:flex-1">
+        <div className="flex flex-col gap-2 lg:min-h-[200px] lg:flex-1 lg:flex-row">
+          <div className="min-w-0 lg:flex-1">
           <ImageAnnotator
             src={props.imageSrc}
             heightClass="h-[45vh] lg:h-full"
@@ -373,6 +374,32 @@ export function MainRatingForm(props: {
               dim: selected !== null && selected !== i,
             }))}
           />
+          </div>
+          <LayersPanel
+            className={cn(regions.length === 0 && "hidden lg:flex")}
+            layers={layers.map(({ tag: t }) => ({
+              tag: t,
+              label: layerLabel(t),
+              name: t.startsWith(FLAG_PREFIX) ? undefined : criterionText(keyOf[t] ?? "")?.label,
+              color: tagColor(t),
+              dashed: t.startsWith(FLAG_PREFIX),
+              boxes: regions.flatMap((r, i) => (regionTag(r) === t ? [{ i, uid: r.uid, hidden: hiddenUids.has(r.uid) }] : [])),
+            }))}
+            hiddenTags={hiddenTags}
+            allHidden={opacity === 0}
+            selected={selected}
+            onToggleAll={() => (opacity === 0 ? showMarks() : (setShownOpacity(opacity), setOpacity(0)))}
+            onToggleLayer={toggleLayer}
+            onToggleBox={(uid, t) => {
+              // A box in a hidden layer: show the layer again, with this box visible.
+              if (hiddenTags.has(t)) {
+                toggleLayer(t);
+                if (hiddenUids.has(uid)) toggleHidden(uid);
+              } else toggleHidden(uid);
+            }}
+            onSelect={(i) => setSelected(selected === i ? null : i)}
+            onRemove={removeRegion}
+          />
         </div>
         {regions.length > 0 && (
           <section ref={listRef} className="relative shrink-0 rounded-lg border bg-card lg:max-h-[45%] lg:overflow-y-auto">
@@ -383,34 +410,10 @@ export function MainRatingForm(props: {
                 <Eraser /> සියල්ල clear කරන්න
               </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-1 border-b px-2.5 py-1.5" role="group" aria-label="Layers">
-              {layers.map(({ tag: t, count }) => {
-                const off = hiddenTags.has(t);
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    aria-pressed={!off}
-                    title={off ? "මෙම කොටු පෙන්වන්න" : "මෙම කොටු සඟවන්න"}
-                    onClick={() => toggleLayer(t)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs transition hover:bg-muted",
-                      off && "text-muted-foreground",
-                    )}
-                  >
-                    <Dot color={tagColor(t)} dashed={t.startsWith(FLAG_PREFIX)} />
-                    <span className={cn("font-semibold", off && "line-through")}>{layerLabel(t)}</span>
-                    <span className="tabular-nums text-muted-foreground">{count}</span>
-                    {off ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </button>
-                );
-              })}
-            </div>
             <ul className="divide-y">
               {regions.map((r, i) => {
                 const open = selected === i;
                 const hiddenNow = isHidden(r);
-                const layerHidden = hiddenTags.has(regionTag(r));
                 const key = keyOf[r.criterionId];
                 const issue = r.flag ? null : ISSUE_TAGS[key]?.find((t) => t.value === r.issueTag)?.label;
                 return (
@@ -435,21 +438,6 @@ export function MainRatingForm(props: {
                         )}
                         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition", r.flag && "ml-auto", open && "rotate-180")} />
                       </button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={hiddenNow ? "පෙන්වන්න" : "සඟවන්න"}
-                        title={hiddenNow ? "පෙන්වන්න" : "සඟවන්න"}
-                        onClick={() => {
-                          // A box in a hidden layer: show the layer again, with this box visible.
-                          if (layerHidden) {
-                            toggleLayer(regionTag(r));
-                            if (hiddenUids.has(r.uid)) toggleHidden(r.uid);
-                          } else toggleHidden(r.uid);
-                        }}
-                      >
-                        {hiddenNow ? <EyeOff /> : <Eye />}
-                      </Button>
                       <Button variant="ghost" size="icon-sm" aria-label="කොටුව clear කරන්න" title="Clear" onClick={() => removeRegion(i)}>
                         <X />
                       </Button>
@@ -802,6 +790,152 @@ function TagPanel(props: { value: string; onChange: (v: string) => void; criteri
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * Photoshop-style layers beside the scan: one layer per criterion (or flag) that has boxes. The eye shows or hides
+ * the whole layer; open a layer to show/hide, select or clear its boxes one by one. Hidden boxes are still saved.
+ */
+function LayersPanel(props: {
+  className?: string;
+  layers: { tag: string; label: string; name?: string; color: string; dashed: boolean; boxes: { i: number; uid: number; hidden: boolean }[] }[];
+  hiddenTags: Set<string>;
+  allHidden: boolean;
+  selected: number | null;
+  onToggleAll: () => void;
+  onToggleLayer: (tag: string) => void;
+  onToggleBox: (uid: number, tag: string) => void;
+  onSelect: (i: number) => void;
+  onRemove: (i: number) => void;
+}) {
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Open the layer of the selected box, so it can be seen in the list.
+  const selectedTag = props.layers.find((l) => l.boxes.some((b) => b.i === props.selected))?.tag;
+  useEffect(() => {
+    if (selectedTag) setOpen((o) => (o.has(selectedTag) ? o : new Set(o).add(selectedTag)));
+  }, [selectedTag, props.selected]);
+  const toggleOpen = (t: string) =>
+    setOpen((o) => {
+      const n = new Set(o);
+      if (n.has(t)) n.delete(t);
+      else n.add(t);
+      return n;
+    });
+  const eye = (on: boolean, faded = false) =>
+    on ? <Eye className={cn("size-4", faded && "opacity-40")} /> : <EyeOff className="size-4 opacity-60" />;
+
+  return (
+    <section
+      aria-label="ස්ථර"
+      className={cn("flex shrink-0 flex-col overflow-hidden rounded-lg border bg-card lg:w-64", props.className)}
+    >
+      <div className="flex items-center gap-1 border-b px-2 py-1.5">
+        <span className="text-sm font-semibold">ස්ථර</span>
+        <span className="text-xs text-muted-foreground">(layers)</span>
+        {props.layers.length > 0 && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="ml-auto"
+            aria-label={props.allHidden ? "සියලු කොටු පෙන්වන්න" : "සියලු කොටු සඟවන්න"}
+            title={props.allHidden ? "සියලු කොටු පෙන්වන්න" : "සියලු කොටු සඟවන්න"}
+            onClick={props.onToggleAll}
+          >
+            {eye(!props.allHidden)}
+          </Button>
+        )}
+      </div>
+      {props.layers.length === 0 ? (
+        <p className="p-3 text-xs text-muted-foreground">කොටු තවම නැත. ඔබ අඳින කොටු මෙහි ස්ථර ලෙස පෙනේ.</p>
+      ) : (
+        <ul className={cn("divide-y overflow-y-auto", props.allHidden && "opacity-50")}>
+          {props.layers.map((l) => {
+            const off = props.hiddenTags.has(l.tag);
+            const isOpen = open.has(l.tag);
+            return (
+              <li key={l.tag}>
+                <div className="flex items-center gap-0.5 px-1 py-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-pressed={!off}
+                    aria-label={off ? `${l.label} පෙන්වන්න` : `${l.label} සඟවන්න`}
+                    title={off ? "මෙම ස්ථරය පෙන්වන්න" : "මෙම ස්ථරය සඟවන්න"}
+                    onClick={() => props.onToggleLayer(l.tag)}
+                  >
+                    {eye(!off)}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => toggleOpen(l.tag)}
+                    aria-expanded={isOpen}
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-muted",
+                      off && "text-muted-foreground",
+                    )}
+                  >
+                    <Dot color={l.color} dashed={l.dashed} />
+                    <b className="shrink-0 font-semibold">{l.label}</b>
+                    {l.name && <span className="min-w-0 truncate text-xs text-muted-foreground">{l.name}</span>}
+                    <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 text-xs tabular-nums">{l.boxes.length}</span>
+                    <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition", isOpen && "rotate-180")} />
+                  </button>
+                </div>
+                {isOpen && (
+                  <ul className="pb-1">
+                    {l.boxes.map((b, n) => {
+                      const sel = props.selected === b.i;
+                      return (
+                        <li
+                          key={b.uid}
+                          className={cn("flex items-center gap-0.5 py-0.5 pr-1 pl-4", sel && "bg-brand-soft")}
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={b.hidden || off ? "පෙන්වන්න" : "සඟවන්න"}
+                            title={b.hidden || off ? "පෙන්වන්න" : "සඟවන්න"}
+                            onClick={() => props.onToggleBox(b.uid, l.tag)}
+                          >
+                            {eye(!b.hidden, off)}
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => props.onSelect(b.i)}
+                            className={cn(
+                              "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left text-xs hover:bg-muted",
+                              (b.hidden || off) && "text-muted-foreground line-through",
+                              sel && "font-semibold",
+                            )}
+                          >
+                            <span
+                              aria-hidden
+                              className={cn("inline-block size-3 shrink-0 rounded-[2px] border-2", l.dashed && "border-dashed")}
+                              style={{ borderColor: l.color }}
+                            />
+                            {l.label} · {n + 1}
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="කොටුව clear කරන්න"
+                            title="Clear"
+                            onClick={() => props.onRemove(b.i)}
+                          >
+                            <X />
+                          </Button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 
