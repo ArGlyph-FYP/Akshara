@@ -117,7 +117,7 @@ export function ImageAnnotator({
         minScale={minScale}
         maxScale={8}
         limitToBounds={false}
-        panning={{ disabled: drawMode }}
+        panning={{ disabled: drawMode, excluded: ["annot-tag"] }}
         doubleClick={{ disabled: true }}
         wheel={{ step: 0.15 }}
         centerZoomedOut
@@ -216,7 +216,7 @@ export function ImageAnnotator({
                       return (
                         <div
                           key={i}
-                          className={`absolute flex items-stretch overflow-hidden text-[11px] leading-none font-semibold text-white shadow-sm ${
+                          className={`annot-tag absolute flex items-stretch overflow-hidden text-[11px] leading-none font-semibold text-white shadow-sm ${
                             inside ? "rounded-br-md" : "rounded-t-md"
                           } ${selected === i ? "ring-2 ring-white" : ""}`}
                           style={{
@@ -226,8 +226,10 @@ export function ImageAnnotator({
                             opacity: b.dim ? 0.45 : 1,
                             transform: `scale(${1 / scale})${inside ? "" : " translateY(-100%)"}`,
                             transformOrigin: "top left",
-                            pointerEvents: drawMode ? "none" : "auto",
+                            pointerEvents: "auto",
                           }}
+                          // Tags stay clickable in draw mode; don't let a press on one start a new box.
+                          onPointerDown={(e) => e.stopPropagation()}
                         >
                           <button type="button" className="px-1.5 py-1 whitespace-nowrap" onClick={() => onSelect?.(i)}>
                             {b.label}
