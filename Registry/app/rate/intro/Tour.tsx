@@ -28,14 +28,14 @@ export function Tour({ studyId }: { studyId: string }) {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">ඇගයීම ආරම්භ කිරීමට පෙර</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            ඇගයීම කරන ආකාරය පිළිබඳ කෙටි හැඳින්වීමක් (මිනිත්තුවක් පමණ) බැලීමට ඔබට හැක. පෙර අත්දැකීම් ඇත්නම් එය මඟ හැරිය හැක.
+            ඇගයීම කරන ආකාරය පිළිබඳ කෙටි හැඳින්වීමක් (මිනිත්තුවක් පමණ) බැලීමට ඔබට හැක. පෙර අත්දැකීම් ඇත්නම් එය skip කළ හැක.
           </p>
         </div>
         <Button className="h-12 w-full text-base" onClick={() => setStep(0)} disabled={busy}>
           <GraduationCap /> කෙටි පුහුණුව (මිනිත්තු 1)
         </Button>
         <Button variant="outline" className="h-12 w-full text-base" onClick={() => finish("skipped")} disabled={busy}>
-          {busy && <Loader2 className="animate-spin" />} මඟ හැර ඇගයීම අරඹන්න
+          {busy && <Loader2 className="animate-spin" />} Skip කර ඇගයීම අරඹන්න
         </Button>
       </main>
     );
@@ -51,7 +51,7 @@ export function Tour({ studyId }: { studyId: string }) {
           </li>
           <li>පාසල් ආකෘතියට සමාන වීම පමණක් වැඩි ලකුණකට හේතුවක් නොවේ. ස්ථාවර, හොඳින් සැකසූ පෞද්ගලික ශෛලියක් දෝෂයක් නොවේ.</li>
           <li>කඩදාසිය, ස්කෑන් ගුණාත්මකභාවය සහ පෑනේ වර්ණය නොසලකන්න.</li>
-          <li>ඔබේම, පවුලේ අයෙකුගේ හෝ මිතුරෙකුගේ අත් අකුරු හඳුනාගත්තොත් එය මඟ හරින්න (පිටුවේ පහළ ඇති සබැඳිය).</li>
+          <li>ඔබේම, පවුලේ අයෙකුගේ හෝ මිතුරෙකුගේ අත් අකුරු හඳුනාගත්තොත් එය skip කරන්න (පිටුවේ පහළ ඇති “Skip” සබැඳිය).</li>
         </ul>
       ),
     },
@@ -71,7 +71,7 @@ export function Tour({ studyId }: { studyId: string }) {
             <b>5–6 යනු සාමාන්‍ය වැඩිහිටි අත් අකුරකි.</b> සම්පූර්ණ පරාසයම භාවිත කරන්න. ගැළපෙන කාණ්ඩය තෝරා, පසුව එහි අඩු හෝ වැඩි අංකය තෝරන්න.
           </p>
           <div className="rounded-lg border p-3">
-            <p className="text-xs font-medium text-muted-foreground">උත්සාහ කර බලන්න: අංකයක් තට්ටු කරන්න</p>
+            <p className="text-xs font-medium text-muted-foreground">උත්සාහ කර බලන්න: අංකයක් tap කරන්න</p>
             <ScoreButtons compact scale={{ min: 1, max: 10 }} value={tryScore} onChange={setTryScore} lowLabel={OVERALL.low} highLabel={OVERALL.high} />
             <p className="mt-1 min-h-10 text-xs text-primary">
               {tryScore !== null && (
@@ -95,7 +95,7 @@ export function Tour({ studyId }: { studyId: string }) {
             <b>සැරසිලි</b> සහ <b>කපා හැරීම්</b> — කෙටි ප්‍රශ්න දෙකකි.
           </li>
           <li>
-            <b>නිර්ණායක අට (A1–A8)</b> — තනි නරකම අකුර අනුව නොව, සාමාන්‍ය අකුර අනුව. “බලන්න” තට්ටු කළ විට එක් එක් එකේ විස්තර පෙනේ.
+            <b>නිර්ණායක අට (A1–A8)</b> — තනි නරකම අකුර අනුව නොව, සාමාන්‍ය අකුර අනුව. “බලන්න” tap කළ විට එක් එක් එකේ විස්තර පෙනේ.
             <span className="mt-1 block text-xs text-muted-foreground">{CRITERIA.map((c) => c.label).join(" · ")}</span>
           </li>
           <li>
@@ -110,7 +110,7 @@ export function Tour({ studyId }: { studyId: string }) {
         <div className="space-y-3">
           <p>
             <SquareDashedMousePointer className="mr-1 inline size-4 text-primary" />
-            <b>“දුර්වල තැනක් සලකුණු කරන්න”</b> තට්ටු කර, රූපයේ දුර්වල තැන වටා කොටුවක් අඳින්න. ඉන්පසු නිර්ණායකය, ගැටලුව සහ බරපතලකම (2 = පැහැදිලිව පෙනේ, 3 =
+            <b>“දුර්වල තැනක් සලකුණු කරන්න”</b> tap කර, රූපයේ දුර්වල තැන වටා කොටුවක් අඳින්න. ඉන්පසු නිර්ණායකය, ගැටලුව සහ බරපතලකම (2 = පැහැදිලිව පෙනේ, 3 =
             වචනය හෝ පේළිය නරක් කරයි) තෝරන්න. මෙය <b>අනිවාර්ය නොවේ</b>.
           </p>
           <p>
@@ -156,7 +156,7 @@ export function Tour({ studyId }: { studyId: string }) {
           onClick={() => finish("skipped")}
           disabled={busy}
         >
-          පුහුණුව මඟ හැර ඇගයීම අරඹන්න
+          පුහුණුව Skip කර ඇගයීම අරඹන්න
         </button>
       )}
     </main>
