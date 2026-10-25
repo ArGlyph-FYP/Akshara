@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Loader2, SquareDashedMousePointer, X } from "lucide-react";
+import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ import {
 } from "@/lib/rubric/si";
 import type { Region, Scale } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { skipItem, submitRating } from "../actions";
+import { submitRating } from "../actions";
 
 interface C {
   id: string;
@@ -102,7 +102,6 @@ export function MainRatingForm(props: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(props.position === 1);
-  const [skipping, setSkipping] = useState(false);
   const [feedback, setFeedback] = useState<{ overall: number | null; legibility: number | null; note: string } | null>(null);
 
   const keyOf = Object.fromEntries(criteria.map((c) => [c.id, c.key]));
@@ -113,8 +112,8 @@ export function MainRatingForm(props: {
     t.startsWith(FLAG_PREFIX) ? MARK_STYLE.weak.color : colorFor(Math.max(0, criteria.findIndex((c) => c.id === t)));
   const regionTag = (r: Region) => (r.flag ? `${FLAG_PREFIX}${r.flag}` : r.criterionId);
   const isHidden = (r: Mark) => hiddenUids.has(r.uid) || hiddenTags.has(regionTag(r));
-  /** Layers that have at least one box, in A1–A8 order then flags, with their box counts. */
-  const layers = [...new Set(regions.map(regionTag))]
+  /** Layers: A1–A8 always, then flags that have boxes, with their box counts. */
+  const layers = [...new Set([...criteria.map((c) => c.id), ...regions.map(regionTag)])]
     .map((t) => ({ tag: t, count: regions.filter((r) => regionTag(r) === t).length }))
     .sort((a, b) => layerOrder(a.tag) - layerOrder(b.tag));
   function layerOrder(t: string) {
@@ -234,17 +233,6 @@ export function MainRatingForm(props: {
     if (res.anchor) {
       setBusy(false);
       return setFeedback(res.anchor);
-    }
-    next();
-  }
-
-  async function skip() {
-    setBusy(true);
-    const res = await skipItem(props.assignmentId);
-    if (res?.error) {
-      setBusy(false);
-      setSkipping(false);
-      return setError(res.error);
     }
     next();
   }
@@ -376,7 +364,6 @@ export function MainRatingForm(props: {
           />
           </div>
           <LayersPanel
-            className={cn(regions.length === 0 && "hidden lg:flex")}
             layers={layers.map(({ tag: t }) => ({
               tag: t,
               label: layerLabel(t),
@@ -553,16 +540,6 @@ export function MainRatingForm(props: {
             {busy && <Loader2 className="animate-spin" />}
             {props.position === props.total ? "අවසන් කරන්න" : "ඊළඟ"}
           </Button>
-          {!props.isCalibration && (
-            <button
-              type="button"
-              className="w-full text-center text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              onClick={() => setSkipping(true)}
-              disabled={busy}
-            >
-              මෙම අත් අකුරු හඳුනාගත්තා — Skip
-            </button>
-          )}
         </section>
       </aside>
 
@@ -591,25 +568,6 @@ export function MainRatingForm(props: {
           <DialogFooter>
             <Button className="w-full" onClick={() => setHelp(false)}>
               හරි, ආරම්භ කරමු
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={skipping} onOpenChange={(o) => !busy && setSkipping(o)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>මෙම ඡේදය skip කරන්නද?</DialogTitle>
-            <DialogDescription>
-              මෙය ඔබේම, ඔබේ පවුලේ අයෙකුගේ හෝ මිතුරෙකුගේ අත් අකුරු නම් පමණක් skip කරන්න. එය ඇගයීමට ගණන් නොගැනේ.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSkipping(false)} disabled={busy}>
-              නැත, ඇගයීමට
-            </Button>
-            <Button onClick={skip} disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />} ඔව්, skip කරන්න
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -810,6 +768,19 @@ function LayersPanel(props: {
   onRemove: (i: number) => void;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // Folded by default so the scan gets the full width; the rater's choice is remembered on this device.
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("akshara.layersPanel") === "open") setExpanded(true);
+    } catch {}
+  }, []);
+  const setPanel = (v: boolean) => {
+    setExpanded(v);
+    try {
+      localStorage.setItem("akshara.layersPanel", v ? "open" : "closed");
+    } catch {}
+  };
   // Open the layer of the selected box, so it can be seen in the list.
   const selectedTag = props.layers.find((l) => l.boxes.some((b) => b.i === props.selected))?.tag;
   useEffect(() => {
@@ -825,15 +796,80 @@ function LayersPanel(props: {
   const eye = (on: boolean, faded = false) =>
     on ? <Eye className={cn("size-4", faded && "opacity-40")} /> : <EyeOff className="size-4 opacity-60" />;
 
+  // Folded: a thin strip (a row on phones) with the open button and one quick show/hide button per layer.
+  if (!expanded) {
+    return (
+      <section
+        aria-label="ස්ථර"
+        className={cn(
+          "flex shrink-0 flex-wrap items-center gap-1 rounded-lg border bg-card p-1 lg:w-11 lg:flex-col lg:flex-nowrap lg:overflow-y-auto",
+          props.className,
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="ස්ථර පෙන්වන්න"
+          title="ස්ථර (layers) පෙන්වන්න"
+          aria-expanded={false}
+          onClick={() => setPanel(true)}
+        >
+          <Layers />
+        </Button>
+        <span className="hidden h-px w-6 bg-border lg:block" />
+        {props.layers.map((l) => {
+          const off = props.hiddenTags.has(l.tag);
+          const empty = l.boxes.length === 0;
+          return (
+            <button
+              key={l.tag}
+              type="button"
+              disabled={empty}
+              aria-pressed={!off}
+              aria-label={off ? `${l.label} පෙන්වන්න` : `${l.label} සඟවන්න`}
+              title={empty ? `${l.label}: කොටු නැත` : `${l.label} (${l.boxes.length}) — ${off ? "පෙන්වන්න" : "සඟවන්න"}`}
+              onClick={() => props.onToggleLayer(l.tag)}
+              className={cn(
+                "relative flex h-7 min-w-8 shrink-0 items-center justify-center rounded-md border-2 px-1 text-[11px] font-semibold transition",
+                empty ? "border-transparent text-muted-foreground/50" : off ? "bg-card text-muted-foreground line-through" : "text-white",
+                l.dashed && "border-dashed",
+              )}
+              style={empty ? undefined : { borderColor: l.color, background: off ? undefined : l.color }}
+            >
+              {l.dashed ? "!" : l.label}
+              {!empty && (
+                <span className="absolute -top-1.5 -right-1.5 rounded-full bg-foreground px-1 text-[9px] leading-tight text-background tabular-nums">
+                  {l.boxes.length}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label="ස්ථර"
       className={cn("flex shrink-0 flex-col overflow-hidden rounded-lg border bg-card lg:w-64", props.className)}
     >
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
+        <Layers className="size-4 text-muted-foreground" />
         <span className="text-sm font-semibold">ස්ථර</span>
         <span className="text-xs text-muted-foreground">(layers)</span>
-        {props.layers.length > 0 && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="order-last"
+          aria-label="ස්ථර හකුළන්න"
+          title="හකුළන්න (scan එක ලොකු කරන්න)"
+          aria-expanded
+          onClick={() => setPanel(false)}
+        >
+          <PanelRightClose />
+        </Button>
+        {props.layers.some((l) => l.boxes.length > 0) && (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -852,13 +888,15 @@ function LayersPanel(props: {
         <ul className={cn("divide-y overflow-y-auto", props.allHidden && "opacity-50")}>
           {props.layers.map((l) => {
             const off = props.hiddenTags.has(l.tag);
-            const isOpen = open.has(l.tag);
+            const empty = l.boxes.length === 0;
+            const isOpen = open.has(l.tag) && !empty;
             return (
               <li key={l.tag}>
-                <div className="flex items-center gap-0.5 px-1 py-0.5">
+                <div className={cn("flex items-center gap-0.5 px-1 py-0.5", empty && "text-muted-foreground")}>
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    disabled={empty}
                     aria-pressed={!off}
                     aria-label={off ? `${l.label} පෙන්වන්න` : `${l.label} සඟවන්න`}
                     title={off ? "මෙම ස්ථරය පෙන්වන්න" : "මෙම ස්ථරය සඟවන්න"}
@@ -868,10 +906,11 @@ function LayersPanel(props: {
                   </Button>
                   <button
                     type="button"
+                    disabled={empty}
                     onClick={() => toggleOpen(l.tag)}
                     aria-expanded={isOpen}
                     className={cn(
-                      "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left text-sm hover:bg-muted",
+                      "flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left text-sm enabled:hover:bg-muted",
                       off && "text-muted-foreground",
                     )}
                   >
@@ -879,7 +918,7 @@ function LayersPanel(props: {
                     <b className="shrink-0 font-semibold">{l.label}</b>
                     {l.name && <span className="min-w-0 truncate text-xs text-muted-foreground">{l.name}</span>}
                     <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 text-xs tabular-nums">{l.boxes.length}</span>
-                    <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition", isOpen && "rotate-180")} />
+                    <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition", empty && "invisible", isOpen && "rotate-180")} />
                   </button>
                 </div>
                 {isOpen && (
