@@ -211,20 +211,19 @@ export function ImageAnnotator({
                   <div className="pointer-events-none absolute inset-0" style={{ opacity: Math.max(overlayOpacity, 0.5) }}>
                     {boxes.map((b, i) => {
                       if (b.hidden) return null;
-                      // Tags sit just above their box; near the top edge they go just below it, so they never hide the box.
-                      const where = b.y >= 0.08 ? "above" : b.y + b.h <= 0.9 ? "below" : "inside";
+                      // Tags always sit just above their box, so they never cover the line below.
                       return (
                         <div
                           key={i}
-                          className={`annot-tag absolute flex items-stretch overflow-hidden text-[11px] leading-none font-semibold text-white shadow-sm ${
-                            where === "above" ? "rounded-t-md" : where === "below" ? "rounded-b-md" : "rounded-br-md"
-                          } ${selected === i ? "ring-2 ring-white" : ""}`}
+                          className={`annot-tag absolute flex items-stretch overflow-hidden rounded-t-md text-[11px] leading-none font-semibold text-white shadow-sm ${
+                            selected === i ? "ring-2 ring-white" : ""
+                          }`}
                           style={{
                             left: `${b.x * 100}%`,
-                            top: `${(where === "below" ? b.y + b.h : b.y) * 100}%`,
+                            top: `${b.y * 100}%`,
                             background: b.color,
                             opacity: b.dim ? 0.45 : 1,
-                            transform: `scale(${1 / scale})${where === "above" ? " translateY(-100%)" : ""}`,
+                            transform: `scale(${1 / scale}) translateY(-100%)`,
                             transformOrigin: "top left",
                             pointerEvents: "auto",
                           }}
