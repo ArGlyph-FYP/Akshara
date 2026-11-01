@@ -48,8 +48,9 @@ export function SetupView({ data }: { data: StudyPageData }) {
     try {
       const raw = sessionStorage.getItem(PICK_KEY);
       if (!raw) return;
-      const pick = JSON.parse(raw) as { script: string; type?: string; ids: string[] };
+      const pick = JSON.parse(raw) as { script: string; datasetId?: string; type?: string; ids: string[] };
       if (pick.script !== data.script || (pick.type ?? "perception") !== data.type) return;
+      if (pick.datasetId && pick.datasetId !== data.dataset.id) return;
       sessionStorage.removeItem(PICK_KEY);
       setSelected(new Set(pick.ids.filter((id) => rowById.has(id))));
     } catch {}
@@ -63,6 +64,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
     setBusy(true);
     const res = await startStudy({
       script: data.script,
+      datasetId: data.dataset.id,
       type: data.type,
       title,
       instructions,

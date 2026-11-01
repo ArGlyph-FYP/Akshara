@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { currentScript } from "@/lib/script";
+import { currentDataset, currentScript } from "@/lib/script";
 import { loadSurveyList } from "../_study/load";
 import { SurveyList } from "../_study/StudyPage";
 
@@ -13,6 +13,7 @@ export default async function MainStudySurveys({ searchParams }: { searchParams:
   if (q.new) redirect("/admin/main/new");
   const s = await requireAdmin();
   const script = await currentScript(s.user);
-  const surveys = await loadSurveyList(script, "rubric");
-  return <SurveyList script={script} type="rubric" surveys={surveys} />;
+  const { dataset } = await currentDataset(script);
+  const surveys = await loadSurveyList(script, dataset.id, "rubric");
+  return <SurveyList script={script} dataset={dataset.name} type="rubric" surveys={surveys} />;
 }

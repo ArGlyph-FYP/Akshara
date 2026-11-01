@@ -8,6 +8,24 @@ export const SCRIPT_PREFIX: Record<Script, "SI" | "TA"> = { si: "SI", ta: "TA" }
 export const SURVEY_LANG: Record<Script, "sin" | "tam"> = { si: "sin", ta: "tam" };
 export const surveyPath = (script: Script, token: string) => `/${SURVEY_LANG[script]}/survey/${token}`;
 
+/**
+ * A named set of scans inside one script (e.g. "Initial dataset", "School visit 2027").
+ * Scans and surveys belong to one dataset; writers and their consent are shared by all datasets of the script.
+ */
+export interface Dataset {
+  id: string;
+  script: Script;
+  name: string;
+  createdAt: number;
+  createdBy: string;
+}
+
+export const INITIAL_DATASET_NAME = "Initial dataset";
+/** Each script's first dataset: everything uploaded before datasets existed. */
+export const initialDatasetId = (script: Script) => `${script}-initial`;
+/** Older scans and surveys have no datasetId; they belong to the script's initial dataset. */
+export const datasetOf = (x: { script: Script; datasetId?: string | null }) => x.datasetId || initialDatasetId(x.script);
+
 export type Role = "admin" | "rater";
 export type Phase = "pilot" | "main";
 
@@ -55,6 +73,8 @@ export interface Sample {
   writerId: string;
   script: Script;
   phase: Phase;
+  /** Dataset this scan belongs to (missing on older scans: the initial dataset). */
+  datasetId?: string;
   pageNo: number;
   /** Paragraph number when a form page was split into paragraphs (shown as SI-001-1, SI-001-2); absent for a whole page. */
   part?: number | null;
@@ -125,6 +145,8 @@ export interface Study {
   id: string;
   script: Script;
   type: StudyType;
+  /** Dataset its samples come from (missing on older surveys: the initial dataset). */
+  datasetId?: string;
   title: string;
   instructions: string;
   sampleIds: string[];

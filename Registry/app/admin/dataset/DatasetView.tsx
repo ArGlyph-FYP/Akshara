@@ -27,6 +27,7 @@ import { WritersSheet } from "./WritersSheet";
 
 export function DatasetView({
   script,
+  dataset,
   rows,
   studies,
   writers,
@@ -34,6 +35,7 @@ export function DatasetView({
   known,
 }: {
   script: Script;
+  dataset: { id: string; name: string };
   rows: SampleRow[];
   studies: StudyRef[];
   writers: Participant[];
@@ -85,7 +87,7 @@ export function DatasetView({
   /** Opens the setup for a new survey with the selection already chosen. */
   function newSurvey(type: StudyType) {
     try {
-      sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, type, ids }));
+      sessionStorage.setItem(PICK_KEY, JSON.stringify({ script, datasetId: dataset.id, type, ids }));
     } catch {}
     router.push(`${STUDY_PATH[type]}/new`);
   }
@@ -106,8 +108,8 @@ export function DatasetView({
     <div>
       {confirmDialog}
       <PageHeader
-        title="Dataset"
-        description={`All ${SCRIPT_LABEL[script]} handwriting scans. Upload, check and browse them here, then select samples to add to the perception or main study.`}
+        title={dataset.name}
+        description={`${SCRIPT_LABEL[script]} handwriting scans in this dataset. Upload, check and browse them here, then select samples to add to the perception or main study. Switch or create datasets in the sidebar.`}
       >
         <WritersSheet script={script} writers={writers} scanCount={scanCount} />
         <DropdownMenu>
@@ -117,9 +119,9 @@ export function DatasetView({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel>{SCRIPT_LABEL[script]} dataset</DropdownMenuLabel>
+            <DropdownMenuLabel className="truncate">{dataset.name}</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <a href={`/api/export?scripts=${script}&phases=main&qc=1&mode=public&images=0&surveys=1`}>
+              <a href={`/api/export?scripts=${script}&phases=main&qc=1&mode=public&images=0&surveys=1&datasets=${dataset.id}`}>
                 <div>
                   <div>Labels only (ZIP)</div>
                   <div className="text-xs text-muted-foreground">CSV/JSON ratings, regions, perception answers</div>
@@ -127,7 +129,7 @@ export function DatasetView({
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <a href={`/api/export?scripts=${script}&phases=main&qc=1&mode=public&images=1&surveys=1`}>
+              <a href={`/api/export?scripts=${script}&phases=main&qc=1&mode=public&images=1&surveys=1&datasets=${dataset.id}`}>
                 <div>
                   <div>Public dataset with images (ZIP)</div>
                   <div className="text-xs text-muted-foreground">Writer IDs only; large sets: use npm run export:prod</div>
@@ -136,7 +138,7 @@ export function DatasetView({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href={`/api/export?scripts=${script}&phases=main,pilot&qc=0&mode=internal&images=0&surveys=1`}>
+              <a href={`/api/export?scripts=${script}&phases=main,pilot&qc=0&mode=internal&images=0&surveys=1&datasets=${dataset.id}`}>
                 <div>
                   <div>Internal labels, with codes</div>
                   <div className="text-xs text-muted-foreground">Team use only; includes pilot</div>
@@ -145,7 +147,7 @@ export function DatasetView({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <UploadDialog known={known} scanned={Object.keys(scanCount)} script={script} />
+        <UploadDialog known={known} scanned={Object.keys(scanCount)} script={script} dataset={dataset} />
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -157,7 +159,7 @@ export function DatasetView({
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState icon={<ImagePlus className="size-5" />} title="No scans yet">
+        <EmptyState icon={<ImagePlus className="size-5" />} title={`No scans in ${dataset.name} yet`}>
           Use <b>Upload scans</b> to add the first handwriting pages. Codes can be registered during upload, or in{" "}
           <b>Writers</b>.
         </EmptyState>

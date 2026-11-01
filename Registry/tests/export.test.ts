@@ -125,6 +125,17 @@ describe("buildExport", () => {
     expect(buildExport(data, { ...opts, phases: ["pilot"], qcOnly: false }).images.map((i) => i.sampleId)).toEqual(["p1"]);
   });
 
+  it("filters by dataset (older scans without one belong to the initial dataset)", () => {
+    const withNew = { ...data, samples: [...data.samples, sample("n1", "SI-001", { datasetId: "ds_new" })] };
+    const ids = (datasets?: string[]) => buildExport(withNew, { ...opts, datasets }).images.map((i) => i.sampleId).sort();
+    expect(ids()).toEqual(["n1", "s1", "s3"]);
+    expect(ids([])).toEqual(["n1", "s1", "s3"]);
+    expect(ids(["si-initial"])).toEqual(["s1"]);
+    expect(ids(["ds_new"])).toEqual(["n1"]);
+    expect(ids(["si-initial", "ta-initial"])).toEqual(["s1", "s3"]);
+    expect(buildExport(withNew, { ...opts, datasets: ["ds_new"] }).files["samples.csv"]).toContain("ds_new");
+  });
+
   it("writes main-study flags, form and block columns", () => {
     const csv = buildExport(data, opts).files["ratings.csv"];
     const [head, ...rows] = csv.trim().split("\n");

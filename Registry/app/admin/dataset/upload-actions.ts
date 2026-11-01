@@ -4,10 +4,10 @@ import { revalidatePath } from "next/cache";
 import { run, str } from "@/lib/action";
 import { assertAdmin } from "@/lib/auth";
 import { AUTO_REGISTER_NOTE, newId, newWriterId, normaliseCode, parseFormCode, sampleLabel } from "@/lib/codes";
-import { col, db, getSample } from "@/lib/data";
+import { col, db, getDataset, getSample } from "@/lib/data";
 import { ACCEPTED_TYPES } from "@/lib/filenames";
 import { adminBucket, storageEmulated } from "@/lib/firebase/admin";
-import { SCRIPT_PREFIX, SCRIPTS, type Participant, type Phase, type Sample, type Script } from "@/lib/types";
+import { datasetOf, SCRIPT_LABEL, SCRIPT_PREFIX, SCRIPTS, type Participant, type Phase, type Sample, type Script } from "@/lib/types";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -21,6 +21,8 @@ export interface ScanMeta {
   register: boolean;
   replace: boolean;
   phase: Phase;
+  /** Dataset the scan goes into. */
+  datasetId: string;
   /** Paragraph number when a form page is split (1, 2, …); omitted for a whole page. */
   part?: number | null;
   /** Where this crop sits on the original page, as fractions (0–1). */
@@ -57,21 +59,29 @@ async function check(meta: ScanMeta) {
   const pageNo = Math.max(1, Math.floor(Number(meta.pageNo) || 1));
   const { part, crop, pageId } = cleanPart(meta);
   const label = sampleLabel({ code: parsed.code, pageNo, part });
+  const dataset = await getDataset(String(meta.datasetId ?? ""));
+  if (!dataset) throw new Error("Choose a dataset first");
+  if (dataset.script !== parsed.script) {
+    throw new Error(`${parsed.code} is a ${SCRIPT_LABEL[parsed.script]} code, but ${dataset.name} is a ${SCRIPT_LABEL[dataset.script]} dataset`);
+  }
 
   const participant = (await col.participants().doc(parsed.code).get()).data() as Participant | undefined;
   if (!participant && !meta.register) throw new Error(`${parsed.code} is not registered`);
   if (participant?.status === "withdrawn") throw new Error(`${parsed.code} has withdrawn`);
   if (participant && !participant.consentReceivedAt) throw new Error(`Consent not recorded for ${parsed.code}`);
 
-  // Older samples have no `part` field, so match it here rather than in the query.
+  // Older samples have no `part` or `datasetId` field, so match those here rather than in the query.
+  // The same writer can appear once per dataset.
   const existing = await col.samples().where("participantCode", "==", parsed.code).where("pageNo", "==", pageNo).get();
-  const old = existing.docs.find((d) => ((d.data().part as number | null | undefined) ?? null) === part);
+  const old = existing.docs.find(
+    (d) => ((d.data().part as number | null | undefined) ?? null) === part && datasetOf(d.data() as Sample) === dataset.id,
+  );
   if (old) {
-    if (!meta.replace) throw new Error(`${label} already uploaded`);
+    if (!meta.replace) throw new Error(`${label} already uploaded to ${dataset.name}`);
     const rated = await col.ratings().where("sampleId", "==", old.id).limit(1).get();
     if (!rated.empty) throw new Error(`${label} already has ratings; can't replace`);
   }
-  return { ext, parsed, pageNo, part, crop, pageId, participant, old };
+  return { ext, parsed, pageNo, part, crop, pageId, participant, old, dataset };
 }
 
 /** Returns the writer for a code, registering it first if needed (the uploader has confirmed consent). */
@@ -102,7 +112,7 @@ async function ensureParticipant(parsed: { code: string; script: Script; number:
 
 /** After the file is in Storage: registers the code if asked, replaces the old page, writes the sample. */
 async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
-  const { ext, parsed, pageNo, part, crop, pageId, old } = await check(meta);
+  const { ext, parsed, pageNo, part, crop, pageId, old, dataset } = await check(meta);
   const imagePath = `scans/${parsed.script}/${id}.${ext}`;
   const [exists] = await adminBucket().file(imagePath).exists();
   if (!exists) throw new Error("Upload did not reach storage; try again");
@@ -135,6 +145,7 @@ async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
     writerId: participant.writerId,
     script: participant.script,
     phase: participant.phase,
+    datasetId: dataset.id,
     pageNo,
     part,
     sourcePath,
@@ -274,7 +285,10 @@ export async function changeFormCode(_: unknown, fd: FormData) {
     const group = sample.sourcePath
       ? (await col.samples().where("sourcePath", "==", sample.sourcePath).get()).docs
       : [await col.samples().doc(sample.id).get()];
-    const taken = (await col.samples().where("participantCode", "==", parsed.code).get()).docs.map((d) => d.data());
+    // Only scans in the same dataset can clash (a writer can appear once per dataset).
+    const taken = (await col.samples().where("participantCode", "==", parsed.code).get()).docs
+      .map((d) => d.data())
+      .filter((t) => datasetOf(t as Sample) === datasetOf(sample));
     for (const d of group) {
       const x = d.data();
       if (!x) continue;

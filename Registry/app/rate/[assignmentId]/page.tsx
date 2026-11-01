@@ -9,13 +9,12 @@ import { PerceptionForm } from "./PerceptionForm";
 import { RatingForm } from "./RatingForm";
 
 export default async function RateItem({ params }: { params: Promise<{ assignmentId: string }> }) {
-  const s = await requireRater();
   const { assignmentId } = await params;
-  const snap = await col.assignments().doc(assignmentId).get();
+  const [s, snap] = await Promise.all([requireRater(), col.assignments().doc(assignmentId).get()]);
   const a = snap.exists ? ({ id: snap.id, ...snap.data() } as Assignment) : null;
   if (!a || a.raterId !== s.uid) redirect("/rate");
   if (a.status !== "pending") redirect(`/rate/next?study=${a.studyId}`);
-  const study = await getStudy(a.studyId);
+  const [study, queue] = await Promise.all([getStudy(a.studyId), raterQueue(s.uid, a.studyId)]);
   if (!study || !study.open) {
     return (
       <main className="mx-auto max-w-md px-4 py-16 text-center">
@@ -27,14 +26,20 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
       </main>
     );
   }
-  const queue = await raterQueue(s.uid, study.id);
+  // The item that comes after this one, so the form can load it in the background and go straight there.
+  // Without one, /rate/next decides (thank-you screen or the study list).
+  const after = queue.items.find((x) => x.status === "pending" && x.id !== a.id);
   const common = {
     assignmentId: a.id,
     studyId: study.id,
     // Only the opaque sample ID reaches the browser. Participant codes and repeat status are never sent.
     imageSrc: `/api/image/${a.sampleId}`,
-    position: queue.done + 1,
+    // Place in the queue (not the done count), so a page loaded ahead of time shows the right number.
+    position: queue.items.findIndex((x) => x.id === a.id) + 1,
     total: queue.items.length,
+    next: after
+      ? { href: `/rate/${after.id}`, imageSrc: `/api/image/${after.sampleId}` }
+      : { href: `/rate/next?study=${study.id}`, imageSrc: null },
   };
 
   if (study.type === "perception") {

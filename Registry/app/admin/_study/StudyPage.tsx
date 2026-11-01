@@ -18,6 +18,8 @@ import { StudyView } from "./StudyView";
 /** List screen: every survey of one type for the script, with a button to make a new one. */
 export function SurveyList(props: {
   script: Script;
+  /** Name of the dataset the list is for. */
+  dataset: string;
   type: StudyType;
   surveys: SurveySummary[];
 }) {
@@ -45,7 +47,14 @@ export function SurveyList(props: {
 
   return (
     <div>
-      <PageHeader title={`${SCRIPT_LABEL[props.script]} ${copy.listNoun}`} description={copy.description}>
+      <PageHeader
+        title={`${SCRIPT_LABEL[props.script]} ${copy.listNoun}`}
+        description={
+          <>
+            <span className="font-medium text-foreground">{props.dataset}</span> · {copy.description}
+          </>
+        }
+      >
         {newButton}
       </PageHeader>
       {list}
@@ -119,7 +128,14 @@ export function NewSurvey({ data }: { data: StudyPageData }) {
       <Link href={STUDY_PATH[data.type]} className="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> All {copy.listNoun}
       </Link>
-      <PageHeader title={`New ${SCRIPT_LABEL[data.script]} ${copy.noun} survey`} description={copy.description} />
+      <PageHeader
+        title={`New ${SCRIPT_LABEL[data.script]} ${copy.noun} survey`}
+        description={
+          <>
+            Samples from <span className="font-medium text-foreground">{data.dataset.name}</span> · {copy.description}
+          </>
+        }
+      />
       <SetupView data={data} />
     </div>
   );

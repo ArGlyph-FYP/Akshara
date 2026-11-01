@@ -45,7 +45,18 @@ async function makeThumb(bmp: ImageBitmap): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/jpeg", 0.8));
 }
 
-export function UploadDialog({ known, scanned, script }: { known: Known; scanned: string[]; script: Script }) {
+export function UploadDialog({
+  known,
+  scanned,
+  script,
+  dataset,
+}: {
+  known: Known;
+  scanned: string[];
+  script: Script;
+  /** Uploads go into this dataset. */
+  dataset: { id: string; name: string };
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
@@ -99,6 +110,7 @@ export function UploadDialog({ known, scanned, script }: { known: Known; scanned
       register,
       replace,
       phase,
+      datasetId: dataset.id,
     };
     bmp.close();
     return sendScan(meta, r.file, thumb);
@@ -175,7 +187,9 @@ export function UploadDialog({ known, scanned, script }: { known: Known; scanned
       </DialogTrigger>
       <DialogContent className={cn("max-h-[94vh] gap-4 overflow-y-auto", mode === "forms" ? "sm:max-w-6xl" : "sm:max-w-3xl")}>
         <DialogHeader>
-          <DialogTitle>Upload scans</DialogTitle>
+          <DialogTitle>
+            Upload scans to <span className="text-primary">{dataset.name}</span>
+          </DialogTitle>
           <DialogDescription>
             {mode === "forms" ? (
               <>
@@ -208,6 +222,7 @@ export function UploadDialog({ known, scanned, script }: { known: Known; scanned
               script={script}
               known={known}
               scanned={scanned}
+              datasetId={dataset.id}
               phase={phase}
               busy={busy}
               setBusy={setBusy}

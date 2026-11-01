@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, ThumbsUp, Wrench, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNextItem } from "@/lib/useNextItem";
 import { useEffect, useRef, useState } from "react";
 import { ImageAnnotator, MARK_STYLE, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
@@ -21,11 +21,12 @@ export function PerceptionForm(props: {
   imageSrc: string;
   position: number;
   total: number;
+  next: { href: string; imageSrc: string | null };
   title: string;
   scale: Scale;
   instructions: string;
 }) {
-  const router = useRouter();
+  const next = useNextItem(props.next);
   const started = useRef(Date.now());
   const [overall, setOverall] = useState<number | null>(null);
   const [liked, setLiked] = useState("");
@@ -77,7 +78,7 @@ export function PerceptionForm(props: {
       setBusy(false);
       return setError(res.error);
     }
-    router.push(`/rate/next?study=${props.studyId}`);
+    next();
   }
 
   return (

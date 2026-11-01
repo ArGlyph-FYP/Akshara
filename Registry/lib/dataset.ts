@@ -1,14 +1,14 @@
 import "server-only";
-import { listAssignments, listSamples, listStudies } from "./data";
+import { listAssignments, listDatasetSamples, listStudies } from "./data";
 import type { RatingState, SampleRow, StudyRef } from "./dataset-types";
-import type { Script } from "./types";
+import { datasetOf, type Script } from "./types";
 
-/** Everything the Dataset grid and the Survey sample picker need, for one script. */
-export async function datasetRows(script: Script): Promise<{ rows: SampleRow[]; studies: StudyRef[] }> {
+/** Everything the Dataset grid and the Survey sample picker need, for one dataset. */
+export async function datasetRows(script: Script, datasetId: string): Promise<{ rows: SampleRow[]; studies: StudyRef[] }> {
   const [samples, assignments, studies] = await Promise.all([
-    listSamples({ script }),
+    listDatasetSamples(script, datasetId),
     listAssignments({ script }),
-    listStudies(script),
+    listStudies(script).then((all) => all.filter((st) => datasetOf(st) === datasetId)),
   ]);
   const counts = new Map<string, { assigned: number; done: number }>();
   for (const a of assignments) {

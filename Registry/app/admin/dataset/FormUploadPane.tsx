@@ -33,6 +33,7 @@ export function FormUploadPane({
   script,
   known,
   scanned,
+  datasetId,
   phase,
   busy,
   setBusy,
@@ -43,6 +44,8 @@ export function FormUploadPane({
   known: Known;
   /** Codes that already have samples, so suggestions skip them. */
   scanned: string[];
+  /** Uploads go into this dataset. */
+  datasetId: string;
   phase: Phase;
   busy: boolean;
   setBusy: (b: boolean) => void;
@@ -181,6 +184,7 @@ export function FormUploadPane({
             register: true,
             replace: false,
             phase,
+            datasetId,
           },
           crop.blob,
           crop.thumb,

@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/auth";
 import { newId, newPublicToken } from "@/lib/codes";
 import { RUBRIC_VERSION } from "@/lib/rubric/criteria";
-import { col, db, getStudy, listAssignments, listRatings, listSamples } from "@/lib/data";
-import { DEFAULT_SCALES, MAIN_DEFAULTS, MAIN_SCALE, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
+import { col, db, getDataset, getStudy, listAssignments, listDatasetSamples, listRatings } from "@/lib/data";
+import { datasetOf, DEFAULT_SCALES, MAIN_DEFAULTS, MAIN_SCALE, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
 import type { SurveyStatus } from "./status";
 
 type Result<T = object> = ({ ok: true } & T) | { ok?: false; error: string };
@@ -31,10 +31,10 @@ function cleanRepeatPct(v: unknown): number {
   return Number.isFinite(n) ? Math.min(50, Math.max(0, n)) : 0;
 }
 
-/** Usable samples of a script (withdrawn and rejected scans are never handed out). */
-async function usableSamples(script: Script, ids: string[]) {
+/** Usable samples of one dataset (withdrawn and rejected scans are never handed out). */
+async function usableSamples(script: Script, datasetId: string, ids: string[]) {
   const wanted = new Set(ids);
-  return (await listSamples({ script })).filter(
+  return (await listDatasetSamples(script, datasetId)).filter(
     (s) => wanted.has(s.id) && s.imagePath && s.status !== "excluded" && s.status !== "rejected",
   );
 }
@@ -61,6 +61,8 @@ async function deleteAll(refs: DocumentReference[]) {
  */
 export async function startStudy(input: {
   script: Script;
+  /** Dataset the samples come from. */
+  datasetId: string;
   type: StudyType;
   title: string;
   instructions: string;
@@ -75,7 +77,9 @@ export async function startStudy(input: {
     await assertAdmin();
     if (input.script !== "si" && input.script !== "ta") throw new Error("Choose a script");
     if (input.type !== "perception" && input.type !== "rubric") throw new Error("Choose a study type");
-    const samples = await usableSamples(input.script, input.sampleIds ?? []);
+    const dataset = await getDataset(String(input.datasetId ?? ""));
+    if (!dataset || dataset.script !== input.script) throw new Error("Choose a dataset");
+    const samples = await usableSamples(input.script, dataset.id, input.sampleIds ?? []);
     if (samples.length === 0) throw new Error("Pick at least one sample (withdrawn or rejected scans can't be used)");
 
     // Main study: the fixed Rubric v1 criteria (A1–A8).
@@ -84,6 +88,7 @@ export async function startStudy(input: {
     const main = input.type === "rubric";
     const doc: Omit<Study, "id"> = {
       script: input.script,
+      datasetId: dataset.id,
       type: input.type,
       title: String(input.title ?? "").trim().slice(0, 120) || `${SCRIPT_LABEL[input.script]} ${input.type === "rubric" ? "main study" : "perception"} survey`,
       instructions: String(input.instructions ?? "").slice(0, 4000),
@@ -169,7 +174,7 @@ export async function addSamplesToStudy(studyId: string, sampleIds: string[]): P
   try {
     await assertAdmin();
     const study = await loadStudy(studyId);
-    const fresh = (await usableSamples(study.script, sampleIds)).map((s) => s.id).filter((id) => !study.sampleIds.includes(id));
+    const fresh = (await usableSamples(study.script, datasetOf(study), sampleIds)).map((s) => s.id).filter((id) => !study.sampleIds.includes(id));
     if (fresh.length) await col.studies().doc(studyId).update({ sampleIds: FieldValue.arrayUnion(...fresh) });
     refresh();
     return { ok: true, added: fresh.length };

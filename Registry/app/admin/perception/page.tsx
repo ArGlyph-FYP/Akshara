@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { currentScript } from "@/lib/script";
+import { currentDataset, currentScript } from "@/lib/script";
 import { loadSurveyList } from "../_study/load";
 import { SurveyList } from "../_study/StudyPage";
 
@@ -13,5 +13,7 @@ export default async function PerceptionSurveys({ searchParams }: { searchParams
   if (q.new) redirect("/admin/perception/new");
   const s = await requireAdmin();
   const script = await currentScript(s.user);
-  return <SurveyList script={script} type="perception" surveys={await loadSurveyList(script, "perception")} />;
+  const { dataset } = await currentDataset(script);
+  const surveys = await loadSurveyList(script, dataset.id, "perception");
+  return <SurveyList script={script} dataset={dataset.name} type="perception" surveys={surveys} />;
 }

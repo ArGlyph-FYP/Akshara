@@ -12,6 +12,7 @@ import { clientAuth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import type { Script } from "@/lib/types";
 import { Logo } from "@/components/Logo";
+import { DatasetSwitch, type DatasetOption } from "./DatasetSwitch";
 import { TeamSheet, type TeamMember } from "./TeamSheet";
 
 const NAV = [
@@ -25,6 +26,10 @@ export type StudyBadge = "open" | "full" | "closed" | null;
 
 export interface SidebarProps {
   script: Script;
+  /** The dataset chosen for this script, and all of the script's datasets. */
+  dataset: string;
+  datasets: DatasetOption[];
+  /** Scans in the chosen dataset. */
   samples: number;
   studies: { perception: StudyBadge; main: StudyBadge };
   team: TeamMember[];
@@ -67,14 +72,17 @@ function ScriptSwitch({ script }: { script: Script }) {
   );
 }
 
-function NavBody({ script, samples, studies, team, user, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
+function NavBody({ script, dataset, datasets, samples, studies, team, user, onNavigate }: SidebarProps & { onNavigate?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 p-4">
       <Link href="/admin/dataset" onClick={onNavigate} className="px-1">
         <Logo sub="Registry" />
       </Link>
-      <ScriptSwitch script={script} />
+      <div className="space-y-2">
+        <ScriptSwitch script={script} />
+        <DatasetSwitch key={script} script={script} dataset={dataset} datasets={datasets} />
+      </div>
       <nav className="flex flex-col gap-0.5">
         {NAV.map(({ href, label, icon: Icon, key }) => {
           const active = path.startsWith(href);

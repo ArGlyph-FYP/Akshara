@@ -1,7 +1,7 @@
 "use client";
 
 import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNextItem } from "@/lib/useNextItem";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImageAnnotator, MARK_STYLE, colorFor, type Box } from "@/components/ImageAnnotator";
@@ -72,6 +72,7 @@ export function MainRatingForm(props: {
   blockChanged: boolean;
   position: number;
   total: number;
+  next: { href: string; imageSrc: string | null };
   title: string;
   instructions: string;
   overallScale: Scale;
@@ -79,7 +80,6 @@ export function MainRatingForm(props: {
   criteria: C[];
 }) {
   const { criteria } = props;
-  const router = useRouter();
   const started = useRef(Date.now());
   const [overall, setOverall] = useState<number | null>(null);
   const [legibility, setLegibility] = useState<number | null>(null);
@@ -130,7 +130,7 @@ export function MainRatingForm(props: {
       return n;
     });
   const showMarks = () => opacity === 0 && setOpacity(shownOpacity || 1);
-  const next = () => router.push(`/rate/next?study=${props.studyId}`);
+  const next = useNextItem(props.next);
 
   const missing: { id: string; label: string }[] = [
     ...(overall === null ? [{ id: "q-O", label: OVERALL.code }] : []),
