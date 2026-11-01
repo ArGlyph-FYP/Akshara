@@ -9,6 +9,12 @@ This web app manages data collection for the Akshara study in both branches, Sin
 
 Stack: Next.js 15 (App Router) on **Vercel**, with **Firestore**, **Cloud Storage** and **Firebase Auth** (email + password; email link also works).
 
+## Datasets
+
+Each script can hold several **datasets** (separate sets of scans, e.g. "Initial dataset" and a later school visit). Pick one, create a new one or rename it from the picker under the Sinhala/Tamil switch in the sidebar. The chosen dataset applies to the Dataset tab, uploads, both survey tabs and the Export menu; a survey only uses samples from its own dataset. Writers and their consent are shared by all datasets of a script, so the same code can have scans in more than one dataset (once per dataset).
+
+Everything uploaded before datasets existed is the **Initial dataset** (`si-initial` / `ta-initial`). It is created, and existing scans and surveys are tagged with it, the first time an admin page loads; scans or surveys without a `datasetId` are treated as part of it.
+
 ## How access works
 
 - Browsers only use Firebase Auth. After sign-in, the ID token is exchanged for an httpOnly `__session` cookie (`app/api/session`).
@@ -59,7 +65,7 @@ The app runs on **Vercel**. Firebase provides only Auth, Firestore and Storage (
    npm run set-admin:prod -- you@uom.lk --name "Your Name" --scripts si --password   # asks for the password, hidden
    ```
 
-Because Vercel caps request and response bodies at about 4.5 MB, scans never pass through the server. Uploads go straight to Storage with signed PUT URLs, and `/api/image/*` checks access and then redirects to a 15-minute signed URL. Full image exports can exceed the function time limit, so use `npm run export:prod -- --out ../data/akshara` for those; label-only exports work fine on the Export page.
+Because Vercel caps request and response bodies at about 4.5 MB, scans never pass through the server. Uploads go straight to Storage with signed PUT URLs, and `/api/image/*` checks access and then redirects to a 15-minute signed URL. Full image exports can exceed the function time limit, so use `npm run export:prod -- --out ../data/akshara` for those; label-only exports work fine on the Export page. Add `--datasets si-initial` (comma-separated ids) to export only some datasets.
 
 `npm run env:prod` / `npm run env:emulators` switch what a local `npm run dev` talks to.
 
@@ -79,7 +85,7 @@ Because Vercel caps request and response bodies at about 4.5 MB, scans never pas
 
 ```
 manifest.json          filters, counts, rubric versions, sha256 per image
-samples.csv            sample_id, writer_id, script, phase, page_no, file, width, height, status, is_anchor
+samples.csv            sample_id, writer_id, script, dataset_id, phase, page_no, file, width, height, status, is_anchor
 ratings.csv            one row per rubric rating: study, rater alias, kind (normal | anchor | repeat), overall, legibility, duration
 criterion_scores.csv   long format: rating_id × criterion_key → score
 regions.json           COCO-style boxes (pixels) with criterion category, rater and note

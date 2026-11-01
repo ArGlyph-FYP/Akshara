@@ -21,7 +21,7 @@ function list<T extends string>(q: URLSearchParams, plural: string, single: stri
 }
 
 /**
- * GET /api/export?scripts=si,ta&phases=main&qc=1&mode=public&surveys=1&images=1
+ * GET /api/export?scripts=si,ta&phases=main&qc=1&mode=public&surveys=1&images=1[&datasets=id1,id2]
  * Streams a ZIP. With only=study&study=<id> it returns that study's responses as a CSV.
  */
 export async function GET(req: Request) {
@@ -35,6 +35,7 @@ export async function GET(req: Request) {
     qcOnly: q.get("qc") !== "0",
     mode: q.get("mode") === "internal" ? "internal" : "public",
     includeSurveys: q.get("surveys") === "1",
+    datasets: (q.get("datasets") ?? "").split(",").filter((x) => /^[a-z0-9-]{1,40}$/.test(x)),
   };
   const withImages = q.get("images") !== "0";
   const { data, rubricVersions } = await loadExportData(adminDb());

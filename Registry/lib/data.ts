@@ -1,11 +1,16 @@
 import "server-only";
 import type { Query } from "firebase-admin/firestore";
+import { cache } from "react";
 import { compareSamples } from "./codes";
 import { adminDb } from "./firebase/admin";
 import { rubricCriteria } from "./rubric/criteria";
 import {
+  datasetOf,
+  initialDatasetId,
+  INITIAL_DATASET_NAME,
   type Assignment,
   type Criterion,
+  type Dataset,
   type Participant,
   type Rating,
   type Sample,
@@ -23,6 +28,7 @@ export const col = {
   assignments: () => db().collection("assignments"),
   ratings: () => db().collection("ratings"),
   studies: () => db().collection("studies"),
+  datasets: () => db().collection("datasets"),
 };
 
 async function all<T>(q: Query, withId = true): Promise<T[]> {
@@ -41,6 +47,44 @@ export async function listParticipants(script?: Script): Promise<Participant[]> 
   const q = script ? col.participants().where("script", "==", script) : col.participants();
   const rows = await all<Participant>(q, false);
   return rows.sort((a, b) => a.code.localeCompare(b.code));
+}
+
+/**
+ * The script's datasets, oldest first. The first call creates the "Initial dataset" and files every
+ * existing scan and survey of the script under it.
+ */
+export const listDatasets = cache(async (script: Script): Promise<Dataset[]> => {
+  const rows = await all<Dataset>(col.datasets().where("script", "==", script));
+  if (!rows.some((d) => d.id === initialDatasetId(script))) rows.push(await createInitialDataset(script));
+  return rows.sort((a, b) => a.createdAt - b.createdAt);
+});
+
+export async function getDataset(id: string): Promise<Dataset | null> {
+  const snap = await col.datasets().doc(id).get();
+  return snap.exists ? ({ id: snap.id, ...snap.data() } as Dataset) : null;
+}
+
+async function createInitialDataset(script: Script): Promise<Dataset> {
+  const id = initialDatasetId(script);
+  const doc: Omit<Dataset, "id"> = { script, name: INITIAL_DATASET_NAME, createdAt: 0, createdBy: "system" };
+  await col.datasets().doc(id).set(doc);
+  // Write the datasetId onto older scans and surveys (the app also treats a missing one as the initial dataset).
+  const [samples, studies] = await Promise.all([
+    col.samples().where("script", "==", script).get(),
+    col.studies().where("script", "==", script).get(),
+  ]);
+  const untagged = [...samples.docs, ...studies.docs].filter((d) => !d.data().datasetId).map((d) => d.ref);
+  for (let i = 0; i < untagged.length; i += 450) {
+    const batch = db().batch();
+    untagged.slice(i, i + 450).forEach((r) => batch.update(r, { datasetId: id }));
+    await batch.commit();
+  }
+  return { id, ...doc };
+}
+
+/** Samples of one dataset. */
+export async function listDatasetSamples(script: Script, datasetId: string): Promise<Sample[]> {
+  return (await listSamples({ script })).filter((s) => datasetOf(s) === datasetId);
 }
 
 export async function listSamples(filter: Partial<Pick<Sample, "script" | "phase" | "status">> = {}): Promise<Sample[]> {

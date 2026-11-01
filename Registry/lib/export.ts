@@ -1,6 +1,6 @@
 import { compareSamples } from "./codes";
 import { toCsv } from "./csv";
-import type { Criterion, Participant, Phase, Rating, Sample, Script, Study } from "./types";
+import { datasetOf, type Criterion, type Participant, type Phase, type Rating, type Sample, type Script, type Study } from "./types";
 
 export interface ExportData {
   participants: Participant[];
@@ -32,6 +32,8 @@ export interface ExportOptions {
   mode: "internal" | "public";
   /** Include perception-study answers (open-text reasons). */
   includeSurveys: boolean;
+  /** Only these datasets (ids); all datasets when empty or left out. */
+  datasets?: string[];
 }
 
 export interface ExportImage {
@@ -55,6 +57,8 @@ const iso = (t: number | null | undefined) => (t ? new Date(t).toISOString() : "
 export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild {
   const scripts = new Set(opts.scripts);
   const phases = new Set(opts.phases);
+  const datasets = opts.datasets?.length ? new Set(opts.datasets) : null;
+  const inDatasets = (x: { script: Script; datasetId?: string | null }) => !datasets || datasets.has(datasetOf(x));
   const withdrawn = new Set(data.participants.filter((p) => p.status === "withdrawn").map((p) => p.code));
   const okStatus = opts.qcOnly ? new Set(["qc_ok"]) : new Set(["qc_ok", "uploaded"]);
   const alias = (uid: string) => data.raterAliases[uid] ?? "R?";
@@ -64,6 +68,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     .filter(
       (s) =>
         scripts.has(s.script) &&
+        inDatasets(s) &&
         phases.has(s.phase) &&
         okStatus.has(s.status) &&
         s.imagePath &&
@@ -84,6 +89,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     "writer_id",
     ...(internal ? ["participant_code"] : []),
     "script",
+    "dataset_id",
     "phase",
     "page_no",
     "part",
@@ -100,6 +106,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       writer_id: s.writerId,
       participant_code: s.participantCode,
       script: s.script,
+      dataset_id: datasetOf(s),
       phase: s.phase,
       page_no: s.pageNo,
       part: s.part ?? "",
@@ -285,10 +292,11 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
 
   files["studies.json"] = JSON.stringify(
     data.studies
-      .filter((st) => scripts.has(st.script))
+      .filter((st) => scripts.has(st.script) && inDatasets(st))
       .map((st) => ({
         id: st.id,
         script: st.script,
+        dataset_id: datasetOf(st),
         type: st.type,
         title: st.title,
         overall_scale: [st.overallScale.min, st.overallScale.max],
@@ -392,7 +400,13 @@ export function buildManifest(
       dataset: "Akshara handwriting aesthetics",
       exported_at: iso(exportedAt),
       mode: opts.mode,
-      filters: { scripts: opts.scripts, phases: opts.phases, qc_only: opts.qcOnly, include_perception: opts.includeSurveys },
+      filters: {
+        scripts: opts.scripts,
+        datasets: opts.datasets?.length ? opts.datasets : "all",
+        phases: opts.phases,
+        qc_only: opts.qcOnly,
+        include_perception: opts.includeSurveys,
+      },
       rubric_versions: rubricVersions,
       counts: build.counts,
       notes: [

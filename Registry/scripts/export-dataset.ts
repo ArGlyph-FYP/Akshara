@@ -1,5 +1,5 @@
 // Writes the dataset to a folder (same layout as the ZIP download) for the training pipeline.
-//   npm run export -- --out ../data/akshara --scripts si,ta --phases main --mode public [--all-statuses] [--surveys] [--no-images]
+//   npm run export -- --out ../data/akshara --scripts si,ta --phases main --mode public [--datasets si-initial,…] [--all-statuses] [--surveys] [--no-images]
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -16,6 +16,7 @@ async function main() {
     qcOnly: arg("all-statuses") === undefined,
     mode: arg("mode", "public") === "internal" ? "internal" : "public",
     includeSurveys: arg("surveys") !== undefined,
+    datasets: (arg("datasets", "") ?? "").split(",").filter(Boolean),
   };
   const withImages = arg("no-images") === undefined;
   console.log(`Exporting from ${target()} to ${out}`, opts);

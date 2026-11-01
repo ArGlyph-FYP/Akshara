@@ -1,7 +1,7 @@
 "use client";
 
 import { Anchor, Loader2, SquareDashedMousePointer, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNextItem } from "@/lib/useNextItem";
 import { useEffect, useRef, useState } from "react";
 import { ImageAnnotator, colorFor, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
@@ -35,6 +35,7 @@ export function RatingForm(props: {
   isCalibration: boolean;
   position: number;
   total: number;
+  next: { href: string; imageSrc: string | null };
   title: string;
   instructions: string;
   overallScale: Scale;
@@ -42,7 +43,6 @@ export function RatingForm(props: {
   criteria: C[];
 }) {
   const { criteria } = props;
-  const router = useRouter();
   const started = useRef(Date.now());
   const [overall, setOverall] = useState<number | null>(null);
   const [legibility, setLegibility] = useState<number | null>(null);
@@ -63,7 +63,7 @@ export function RatingForm(props: {
     legibility === null && "legibility",
     ...criteria.filter((c) => scores[c.id] === undefined).map((c) => c.labelEn),
   ].filter(Boolean) as string[];
-  const next = () => router.push(`/rate/next?study=${props.studyId}`);
+  const next = useNextItem(props.next);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -4,7 +4,7 @@ import { col, criteriaFor, getSamplesByIds, getUsersByIds, listAssignments, list
 import { surveyStatus, type SurveyStatus } from "./status";
 import { datasetRows } from "@/lib/dataset";
 import type { SampleRow, StudyRef } from "@/lib/dataset-types";
-import type { AssignmentKind, Criterion, Region, Script, Study, StudyType } from "@/lib/types";
+import { datasetOf, type AssignmentKind, type Criterion, type Dataset, type Region, type Script, type Study, type StudyType } from "@/lib/types";
 
 export interface ReaderInfo {
   uid: string;
@@ -46,10 +46,12 @@ export interface ItemInfo {
 
 export interface StudyPageData {
   script: Script;
+  /** Dataset the survey's samples come from. */
+  dataset: { id: string; name: string };
   type: StudyType;
   /** The survey shown; null on the "new survey" screen. */
   study: Study | null;
-  /** Every survey of this type for the script, newest first. */
+  /** Every survey of this type in the dataset, newest first. */
   rounds: { id: string; title: string; createdAt: number }[];
   /** Samples that can be added (not withdrawn or rejected). */
   rows: SampleRow[];
@@ -73,9 +75,9 @@ export interface SurveySummary {
   createdAt: number;
 }
 
-/** Every survey of one type for the list screen, newest first, with reader and response counts. */
-export async function loadSurveyList(script: Script, type: StudyType): Promise<SurveySummary[]> {
-  const studies = (await listStudies(script)).filter((s) => s.type === type);
+/** Every survey of one type in a dataset for the list screen, newest first, with reader and response counts. */
+export async function loadSurveyList(script: Script, datasetId: string, type: StudyType): Promise<SurveySummary[]> {
+  const studies = (await listStudies(script)).filter((s) => s.type === type && datasetOf(s) === datasetId);
   const count = async (q: FirebaseFirestore.Query) => (await q.count().get()).data().count;
   return Promise.all(
     studies.map(async (s) => {
@@ -101,13 +103,14 @@ export async function loadSurveyList(script: Script, type: StudyType): Promise<S
   );
 }
 
-/** One survey's page (with `id`), or the "new survey" screen (without). */
-export async function loadStudyPage(script: Script, type: StudyType, id?: string): Promise<StudyPageData> {
-  const [all, { rows, studies: refs }] = await Promise.all([listStudies(script), datasetRows(script)]);
-  const rounds = all.filter((s) => s.type === type);
+/** One survey's page (with `id`), or the "new survey" screen (without), within one dataset. */
+export async function loadStudyPage(script: Script, dataset: Dataset, type: StudyType, id?: string): Promise<StudyPageData> {
+  const [all, { rows, studies: refs }] = await Promise.all([listStudies(script), datasetRows(script, dataset.id)]);
+  const rounds = all.filter((s) => s.type === type && datasetOf(s) === dataset.id);
   const study = (id && rounds.find((s) => s.id === id)) || null;
   const base = {
     script,
+    dataset: { id: dataset.id, name: dataset.name },
     type,
     study,
     rounds: rounds.map((s) => ({ id: s.id, title: s.title, createdAt: s.createdAt })),
