@@ -47,7 +47,7 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
   }
   const criteria = criteriaFor(study.script);
 
-  if (study.script === "si") {
+  if (study.script === "si" || study.script === "ta") {
     // Progress counts within the current 10-sample form; the block (text 1 / text 2) comes from the paragraph number.
     const batch = a.batch ?? 1;
     const form = queue.items.filter((x) => (x.batch ?? 1) === batch);
@@ -60,6 +60,7 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
       <MainRatingForm
         key={a.id}
         {...common}
+        script={study.script}
         position={at + 1}
         total={form.length}
         isCalibration={a.kind === "anchor"}

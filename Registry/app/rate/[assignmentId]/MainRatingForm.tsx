@@ -1,8 +1,8 @@
 "use client";
 
-import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
+import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
 import { useNextItem } from "@/lib/useNextItem";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImageAnnotator, MARK_STYLE, colorFor, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
@@ -13,30 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ALTERATIONS,
-  ALTERATIONS_Q,
-  BAND_HOWTO,
-  BAND_NAMES,
-  BAND_RANGES,
-  COMMENT_Q,
-  CRITERIA_INTRO,
-  DECORATION_Q,
-  DECORATIONS,
-  FLAGS,
-  INSTRUCTIONS,
-  ISSUE_TAGS,
-  LEGIBILITY,
-  OVERALL,
-  PARTS,
-  SEVERITY,
-  bandIndex,
-  criterionText,
-  type Alterations,
-  type Bands,
-  type Decoration,
-} from "@/lib/rubric/si";
-import type { Region, Scale } from "@/lib/types";
+import { formRubric, formRubricEnglish, type FormRubric, type HelpGroup } from "@/lib/rubric/form";
+import { ALTERATIONS, BAND_RANGES, DECORATIONS, bandIndex, type Alterations, type Bands, type Decoration } from "@/lib/rubric/si";
+import type { Region, Scale, Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { submitRating } from "../actions";
 
@@ -57,11 +36,15 @@ const FLAG_PREFIX = "flag:";
 type Mark = Region & { uid: number };
 const toRegion = ({ uid, ...r }: Mark): Region => (void uid, r);
 
+/** The study's rubric text and form wording, for the small components below. */
+const RubricCtx = createContext<FormRubric>(formRubric("si"));
+
 /**
- * Main study, Sinhala (Rubric v1): one page per paragraph with O, decoration and alterations flags, A1–A8, L,
- * optional weak-region boxes (criterion, issue tag, severity) and a comment.
+ * Main study, one page per paragraph: optional weak-region boxes (criterion, issue tag, severity) and a comment, with
+ * Sinhala (Rubric v1): O, decoration and alterations flags, A1–A8, L; or Tamil (v0.3): H1, L1, C1–C8.
  */
 export function MainRatingForm(props: {
+  script: Script;
   assignmentId: string;
   studyId: string;
   imageSrc: string;
@@ -80,6 +63,22 @@ export function MainRatingForm(props: {
   criteria: C[];
 }) {
   const { criteria } = props;
+  // Tamil forms can switch to English; the rater's choice is remembered on this device.
+  const englishR = formRubricEnglish(props.script);
+  const [english, setEnglish] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("akshara.formLang") === "en") setEnglish(true);
+    } catch {}
+  }, []);
+  const switchLang = () => {
+    setEnglish(!english);
+    try {
+      localStorage.setItem("akshara.formLang", english ? "local" : "en");
+    } catch {}
+  };
+  const R = english && englishR ? englishR : formRubric(props.script);
+  const { ui } = R;
   const started = useRef(Date.now());
   const [overall, setOverall] = useState<number | null>(null);
   const [legibility, setLegibility] = useState<number | null>(null);
@@ -94,7 +93,7 @@ export function MainRatingForm(props: {
   /** Whole layers (A1, A2, … or a flag) the rater has hidden for now. */
   const [hiddenTags, setHiddenTags] = useState<Set<string>>(new Set());
   const nextUid = useRef(1);
-  const [tag, setTag] = useState(criteria[0]?.id ?? `${FLAG_PREFIX}${FLAGS[0].value}`);
+  const [tag, setTag] = useState(criteria[0]?.id ?? `${FLAG_PREFIX}${R.flags[0].value}`);
   /** How strongly boxes show over the scan (0 = hidden), and the last visible level for the eye toggle. */
   const [opacity, setOpacity] = useState(1);
   const [shownOpacity, setShownOpacity] = useState(1);
@@ -105,8 +104,8 @@ export function MainRatingForm(props: {
   const [feedback, setFeedback] = useState<{ overall: number | null; legibility: number | null; note: string } | null>(null);
 
   const keyOf = Object.fromEntries(criteria.map((c) => [c.id, c.key]));
-  const code = (id: string) => criterionText(keyOf[id] ?? "")?.code ?? criteria.find((c) => c.id === id)?.labelEn ?? "?";
-  const boxLabel = (r: Region) => (r.flag ? (FLAGS.find((f) => f.value === r.flag)?.label ?? r.flag) : code(r.criterionId));
+  const code = (id: string) => R.criterionText(keyOf[id] ?? "")?.code ?? criteria.find((c) => c.id === id)?.labelEn ?? "?";
+  const boxLabel = (r: Region) => (r.flag ? (R.flags.find((f) => f.value === r.flag)?.label ?? r.flag) : code(r.criterionId));
   /** Each criterion has its own colour (same as the admin view); flags are dashed near-black. */
   const tagColor = (t: string) =>
     t.startsWith(FLAG_PREFIX) ? MARK_STYLE.weak.color : colorFor(Math.max(0, criteria.findIndex((c) => c.id === t)));
@@ -118,10 +117,10 @@ export function MainRatingForm(props: {
     .sort((a, b) => layerOrder(a.tag) - layerOrder(b.tag));
   function layerOrder(t: string) {
     const i = criteria.findIndex((c) => c.id === t);
-    return i >= 0 ? i : criteria.length + FLAGS.findIndex((f) => `${FLAG_PREFIX}${f.value}` === t);
+    return i >= 0 ? i : criteria.length + R.flags.findIndex((f) => `${FLAG_PREFIX}${f.value}` === t);
   }
   const layerLabel = (t: string) =>
-    t.startsWith(FLAG_PREFIX) ? (FLAGS.find((f) => `${FLAG_PREFIX}${f.value}` === t)?.label ?? t) : code(t);
+    t.startsWith(FLAG_PREFIX) ? (R.flags.find((f) => `${FLAG_PREFIX}${f.value}` === t)?.label ?? t) : code(t);
   const toggleLayer = (t: string) =>
     setHiddenTags((h) => {
       const n = new Set(h);
@@ -132,12 +131,14 @@ export function MainRatingForm(props: {
   const showMarks = () => opacity === 0 && setOpacity(shownOpacity || 1);
   const next = useNextItem(props.next);
 
+  const missingL = legibility === null ? [{ id: "q-L", label: R.legibility.code }] : [];
   const missing: { id: string; label: string }[] = [
-    ...(overall === null ? [{ id: "q-O", label: OVERALL.code }] : []),
-    ...(decoration === null ? [{ id: "q-D", label: DECORATION_Q.code }] : []),
-    ...(alterations === null ? [{ id: "q-alt", label: ALTERATIONS_Q.label }] : []),
+    ...(overall === null ? [{ id: "q-O", label: R.overall.code }] : []),
+    ...(R.legibilityFirst ? missingL : []),
+    ...(R.extras && decoration === null ? [{ id: "q-D", label: R.extras.decoration.code }] : []),
+    ...(R.extras && alterations === null ? [{ id: "q-alt", label: R.extras.alterations.label }] : []),
     ...criteria.filter((c) => scores[c.id] === undefined).map((c) => ({ id: `q-${c.id}`, label: code(c.id) })),
-    ...(legibility === null ? [{ id: "q-L", label: LEGIBILITY.code }] : []),
+    ...(R.legibilityFirst ? [] : missingL),
   ];
 
   useEffect(() => {
@@ -200,7 +201,7 @@ export function MainRatingForm(props: {
       setRegions((rs) => rs.filter((_, j) => j !== i));
       setSelected((s) => (s === null || s === i ? null : s > i ? s - 1 : s));
     }
-    toast(i === "all" ? "කොටු සියල්ල ඉවත් කළා" : "කොටුව ඉවත් කළා", {
+    toast(i === "all" ? ui.removedAll : ui.removedOne, {
       action: { label: "Undo", onClick: () => (setRegions(before), setSelected(beforeSel)) },
     });
   }
@@ -209,7 +210,7 @@ export function MainRatingForm(props: {
 
   async function submit() {
     if (missing.length) {
-      setError(`තවම පිළිතුරු නොදුන්: ${missing.map((m) => m.label).join(", ")}`);
+      setError(`${ui.missing}${missing.map((m) => m.label).join(", ")}`);
       document.getElementById(missing[0].id)?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -237,33 +238,55 @@ export function MainRatingForm(props: {
     next();
   }
 
+  const legibilityQuestion = (
+    <ScoreQuestion
+      id="q-L"
+      code={R.legibility.code}
+      label={R.legibility.label}
+      question={R.legibility.question}
+      help={R.legibility.help}
+      bands={R.legibility.bands}
+      scale={props.legibilityScale}
+      value={legibility}
+      onChange={setLegibility}
+      low={R.legibility.low}
+      high={R.legibility.high}
+    />
+  );
+
   return (
+    <RubricCtx.Provider value={R}>
     <main className="mx-auto grid max-w-[1600px] grid-cols-[minmax(0,1fr)] gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <div className="flex min-w-0 flex-col gap-2 lg:h-[calc(100vh-5rem)]">
         <div className="flex items-center gap-2 text-sm">
           {props.isCalibration ? (
             <Badge variant="secondary" className="bg-brand-soft text-primary">
-              <Anchor /> ක්‍රමාංකන ඡේදය
+              <Anchor /> {ui.calibration}
             </Badge>
           ) : (
             props.block && (
               <Badge variant="secondary" className="bg-brand-soft text-primary">
-                පාඨය {props.block}
+                {ui.block(props.block)}
               </Badge>
             )
           )}
           <span className="truncate text-muted-foreground">{props.title}</span>
           <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
-            ඡේදය {props.position} / {props.total}
+            {ui.paragraph(props.position, props.total)}
           </span>
-          <Button variant="ghost" size="icon-sm" aria-label="උපදෙස්" onClick={() => setHelp(true)}>
+          {englishR && (
+            <Button variant="outline" size="sm" className="h-7 shrink-0 text-xs" onClick={switchLang}>
+              <Languages /> {ui.switchLang}
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" aria-label={ui.help} onClick={() => setHelp(true)}>
             <Info />
           </Button>
         </div>
         <Progress value={(100 * (props.position - 1)) / props.total} />
         {props.blockChanged && (
           <p className="rounded-lg border border-primary/30 bg-brand-soft px-3 py-2 text-sm">
-            මෙතැන් සිට ඇත්තේ <b>වෙනත් පාඨයකි (පාඨය 2)</b>. එකම පාඨය විවිධ අය ලියූ ඡේද ඔබට පෙනේ.
+            {ui.blockChanged}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-1.5">
@@ -295,7 +318,7 @@ export function MainRatingForm(props: {
                 drawMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <SquareDashedMousePointer className="size-4" /> දුර්වල තැනක් සලකුණු කරන්න
+              <SquareDashedMousePointer className="size-4" /> {ui.draw}
             </button>
           </div>
           {regions.length > 0 && (
@@ -303,8 +326,8 @@ export function MainRatingForm(props: {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={opacity === 0 ? "කොටු පෙන්වන්න" : "කොටු සඟවන්න"}
-                title={opacity === 0 ? "කොටු පෙන්වන්න" : "කොටු සඟවන්න"}
+                aria-label={opacity === 0 ? ui.showBoxes : ui.hideBoxes}
+                title={opacity === 0 ? ui.showBoxes : ui.hideBoxes}
                 onClick={() => (opacity === 0 ? showMarks() : (setShownOpacity(opacity), setOpacity(0)))}
               >
                 {opacity === 0 ? <EyeOff /> : <Eye />}
@@ -320,8 +343,8 @@ export function MainRatingForm(props: {
                   setOpacity(v);
                   if (v > 0) setShownOpacity(v);
                 }}
-                aria-label="කොටුවල පැහැදිලිකම"
-                title="කොටුවල පැහැදිලිකම"
+                aria-label={ui.opacity}
+                title={ui.opacity}
                 className="w-20 accent-primary sm:w-28"
               />
             </div>
@@ -329,14 +352,12 @@ export function MainRatingForm(props: {
         </div>
         {drawMode && (
           <div className="shrink-0 space-y-1.5 rounded-lg border bg-card p-2">
-            <p className="text-xs font-medium">කුමක් ගැනද? තෝරා, රූපයේ දුර්වල තැන වටා කොටුවක් අඳින්න.</p>
+            <p className="text-xs font-medium">{ui.drawPrompt}</p>
             <TagPanel value={tag} onChange={setTag} criteria={criteria} color={tagColor} />
           </div>
         )}
         <p className="px-0.5 text-xs text-muted-foreground">
-          {drawMode
-            ? "Move තෝරා රූපය ඇදගෙන යන්න. Zoom කිරීමට + / − බොත්තම් හෝ ඇඟිලි දෙක භාවිත කරන්න."
-            : "අනිවාර්ය නොවේ. Zoom කිරීමට + / − බොත්තම් හෝ ඇඟිලි දෙක භාවිත කරන්න; රූපය ඇදගෙන යා හැක."}
+          {drawMode ? ui.hintDraw : ui.hintMove}
         </p>
         <div className="flex flex-col gap-2 lg:min-h-[200px] lg:flex-1 lg:flex-row">
           <div className="min-w-0 lg:flex-1">
@@ -367,7 +388,7 @@ export function MainRatingForm(props: {
             layers={layers.map(({ tag: t }) => ({
               tag: t,
               label: layerLabel(t),
-              name: t.startsWith(FLAG_PREFIX) ? undefined : criterionText(keyOf[t] ?? "")?.label,
+              name: t.startsWith(FLAG_PREFIX) ? undefined : R.criterionText(keyOf[t] ?? "")?.label,
               color: tagColor(t),
               dashed: t.startsWith(FLAG_PREFIX),
               boxes: regions.flatMap((r, i) => (regionTag(r) === t ? [{ i, uid: r.uid, hidden: hiddenUids.has(r.uid) }] : [])),
@@ -391,10 +412,10 @@ export function MainRatingForm(props: {
         {regions.length > 0 && (
           <section ref={listRef} className="relative shrink-0 rounded-lg border bg-card lg:max-h-[45%] lg:overflow-y-auto">
             <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-card px-2.5 py-1.5">
-              <span className="text-sm font-semibold">දුර්වල තැන් ({regions.length})</span>
-              <span className="hidden text-xs text-muted-foreground sm:inline">— එකක් tap කර විස්තර තෝරන්න</span>
+              <span className="text-sm font-semibold">{ui.weakTitle} ({regions.length})</span>
+              <span className="hidden text-xs text-muted-foreground sm:inline">{ui.weakHint}</span>
               <Button variant="ghost" size="sm" className="ml-auto" onClick={() => removeRegion("all")}>
-                <Eraser /> සියල්ල clear කරන්න
+                <Eraser /> {ui.clearAll}
               </Button>
             </div>
             <ul className="divide-y">
@@ -402,7 +423,7 @@ export function MainRatingForm(props: {
                 const open = selected === i;
                 const hiddenNow = isHidden(r);
                 const key = keyOf[r.criterionId];
-                const issue = r.flag ? null : ISSUE_TAGS[key]?.find((t) => t.value === r.issueTag)?.label;
+                const issue = r.flag ? null : R.issueTags[key]?.find((t) => t.value === r.issueTag)?.label;
                 return (
                   <li key={r.uid} id={`mark-${r.uid}`} className={cn(open && "bg-muted/40")}>
                     <div className="flex items-center gap-2 px-2.5 py-1.5">
@@ -415,17 +436,17 @@ export function MainRatingForm(props: {
                         <Dot color={tagColor(regionTag(r))} dashed={!!r.flag} />
                         <span className={cn("min-w-0 truncate", hiddenNow && "text-muted-foreground line-through")}>
                           <b className="font-semibold">{boxLabel(r)}</b>
-                          {!r.flag && <span className="text-muted-foreground"> · {criterionText(key ?? "")?.label}</span>}
+                          {!r.flag && <span className="text-muted-foreground"> · {R.criterionText(key ?? "")?.label}</span>}
                         </span>
                         {issue && <span className="hidden min-w-0 truncate text-xs text-muted-foreground md:inline">— {issue}</span>}
                         {!r.flag && (
-                          <span className="ml-auto shrink-0 rounded border px-1.5 text-xs tabular-nums" title="බරපතලකම">
+                          <span className="ml-auto shrink-0 rounded border px-1.5 text-xs tabular-nums" title={ui.severity}>
                             {r.severity ?? 2}
                           </span>
                         )}
                         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition", r.flag && "ml-auto", open && "rotate-180")} />
                       </button>
-                      <Button variant="ghost" size="icon-sm" aria-label="කොටුව clear කරන්න" title="Clear" onClick={() => removeRegion(i)}>
+                      <Button variant="ghost" size="icon-sm" aria-label={ui.clearBox} title="Clear" onClick={() => removeRegion(i)}>
                         <X />
                       </Button>
                     </div>
@@ -455,40 +476,45 @@ export function MainRatingForm(props: {
         <section className="space-y-4 rounded-xl border bg-card p-4">
           <ScoreQuestion
             id="q-O"
-            code={OVERALL.code}
-            label={OVERALL.label}
-            question={OVERALL.question}
-            help={OVERALL.help}
-            bands={OVERALL.bands}
+            code={R.overall.code}
+            label={R.overall.label}
+            question={R.overall.question}
+            help={R.overall.help}
+            bands={R.overall.bands}
             scale={props.overallScale}
             value={overall}
             onChange={setOverall}
-            low={OVERALL.low}
-            high={OVERALL.high}
+            low={R.overall.low}
+            high={R.overall.high}
           />
-          <Choice
-            id="q-D"
-            label={`${DECORATION_Q.label} (${DECORATION_Q.code})`}
-            question={DECORATION_Q.question}
-            options={DECORATIONS.map((v) => ({ value: v, label: DECORATION_Q.options[v] }))}
-            value={decoration}
-            onChange={setDecoration}
-          />
-          <Choice
-            id="q-alt"
-            label={ALTERATIONS_Q.label}
-            question={ALTERATIONS_Q.question}
-            options={ALTERATIONS.map((v) => ({ value: v, label: ALTERATIONS_Q.options[v] }))}
-            value={alterations}
-            onChange={setAlterations}
-          />
+          {R.legibilityFirst && legibilityQuestion}
+          {R.extras && (
+            <>
+              <Choice
+                id="q-D"
+                label={`${R.extras.decoration.label} (${R.extras.decoration.code})`}
+                question={R.extras.decoration.question}
+                options={DECORATIONS.map((v) => ({ value: v, label: R.extras!.decoration.options[v] }))}
+                value={decoration}
+                onChange={setDecoration}
+              />
+              <Choice
+                id="q-alt"
+                label={R.extras.alterations.label}
+                question={R.extras.alterations.question}
+                options={ALTERATIONS.map((v) => ({ value: v, label: R.extras!.alterations.options[v] }))}
+                value={alterations}
+                onChange={setAlterations}
+              />
+            </>
+          )}
         </section>
 
         {criteria.length > 0 && (
           <section className="space-y-4 rounded-xl border bg-card p-4">
-            <p className="text-xs text-muted-foreground">{CRITERIA_INTRO}</p>
+            <p className="text-xs text-muted-foreground">{R.criteriaIntro}</p>
             {criteria.map((c) => {
-              const text = criterionText(c.key);
+              const text = R.criterionText(c.key);
               return (
                 <ScoreQuestion
                   key={c.id}
@@ -497,7 +523,7 @@ export function MainRatingForm(props: {
                   label={text?.label ?? (c.labelLocal || c.labelEn)}
                   question=""
                   help={text?.lookFor ?? c.description}
-                  helpLabel="බලන්න"
+                  helpLabel={ui.lookFor}
                   bands={text?.bands ?? null}
                   scale={{ min: c.min, max: c.max }}
                   value={scores[c.id] ?? null}
@@ -508,26 +534,12 @@ export function MainRatingForm(props: {
           </section>
         )}
 
-        <section className="rounded-xl border bg-card p-4">
-          <ScoreQuestion
-            id="q-L"
-            code={LEGIBILITY.code}
-            label={LEGIBILITY.label}
-            question={LEGIBILITY.question}
-            help=""
-            bands={LEGIBILITY.bands}
-            scale={props.legibilityScale}
-            value={legibility}
-            onChange={setLegibility}
-            low={LEGIBILITY.low}
-            high={LEGIBILITY.high}
-          />
-        </section>
+        {!R.legibilityFirst && <section className="rounded-xl border bg-card p-4">{legibilityQuestion}</section>}
 
         <section className="space-y-3 rounded-xl border bg-card p-4">
           <div>
             <Label htmlFor="rate-comment" className="mb-1.5 leading-snug">
-              {COMMENT_Q} <span className="font-normal text-muted-foreground">(අනිවාර්ය නොවේ)</span>
+              {R.commentQ} <span className="font-normal text-muted-foreground">{ui.optional}</span>
             </Label>
             <Textarea id="rate-comment" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} />
           </div>
@@ -538,7 +550,7 @@ export function MainRatingForm(props: {
           )}
           <Button className="h-10 w-full" onClick={submit} disabled={busy}>
             {busy && <Loader2 className="animate-spin" />}
-            {props.position === props.total ? "අවසන් කරන්න" : "ඊළඟ"}
+            {props.position === props.total ? ui.finish : ui.next}
           </Button>
         </section>
       </aside>
@@ -546,28 +558,32 @@ export function MainRatingForm(props: {
       <Dialog open={help} onOpenChange={setHelp}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>ඇගයීමට පෙර කියවන්න</DialogTitle>
-            <DialogDescription>උපදෙස්</DialogDescription>
+            <DialogTitle>{ui.helpTitle}</DialogTitle>
+            <DialogDescription>{ui.help}</DialogDescription>
           </DialogHeader>
-          <ul className="list-disc space-y-1.5 pl-5 text-sm">
-            {INSTRUCTIONS.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
+          {R.helpGroups ? (
+            <HelpGroups groups={R.helpGroups} onSwitchLang={englishR ? switchLang : null} />
+          ) : (
+            <ul className="list-disc space-y-1.5 pl-5 text-sm">
+              {R.instructions.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          )}
           <div className="rounded-lg bg-muted/60 p-3 text-sm">
-            <p className="mb-2">{BAND_HOWTO}</p>
+            <p className="mb-2">{R.bandHowto}</p>
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
               {BAND_RANGES.map((r, i) => (
                 <div key={r} className="contents">
                   <span className="font-medium tabular-nums">{r}</span>
-                  <span>{BAND_NAMES[i]}</span>
+                  <span>{R.bandNames[i]}</span>
                 </div>
               ))}
             </div>
           </div>
           <DialogFooter>
             <Button className="w-full" onClick={() => setHelp(false)}>
-              හරි, ආරම්භ කරමු
+              {ui.start}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -576,21 +592,21 @@ export function MainRatingForm(props: {
       <Dialog open={!!feedback} onOpenChange={(o) => !o && next()}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle>ක්‍රමාංකන යොමුව</DialogTitle>
+            <DialogTitle>{ui.calTitle}</DialogTitle>
             <DialogDescription>
-              ඔබ සමස්ත අලංකාරයට <b>{overall}</b> සහ කියවීමේ පහසුවට <b>{legibility}</b> දුන්නා. පර්යේෂණ කණ්ඩායමේ යොමු ලකුණු: සමස්ත
-              අලංකාරය <b>{feedback?.overall ?? "–"}</b>, කියවීමේ පහසුව <b>{feedback?.legibility ?? "–"}</b>.
+              {ui.calBody({ overall, legibility }, { overall: feedback?.overall ?? "–", legibility: feedback?.legibility ?? "–" })}
             </DialogDescription>
           </DialogHeader>
           {feedback?.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
           <DialogFooter>
             <Button className="w-full" onClick={next}>
-              ඉදිරියට
+              {ui.continue}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </main>
+    </RubricCtx.Provider>
   );
 }
 
@@ -609,6 +625,7 @@ function ScoreQuestion(props: {
   low?: string;
   high?: string;
 }) {
+  const { bandNames, ui } = useContext(RubricCtx);
   const [open, setOpen] = useState(false);
   const tenPoint = props.scale.min === 1 && props.scale.max === 10;
   const band = props.value !== null && props.bands && tenPoint ? props.bands[bandIndex(props.value)] : null;
@@ -624,7 +641,7 @@ function ScoreQuestion(props: {
             className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-xs text-primary"
             aria-expanded={open}
           >
-            {props.helpLabel ?? "විස්තර"} <ChevronDown className={cn("size-3.5 transition", open && "rotate-180")} />
+            {props.helpLabel ?? ui.details} <ChevronDown className={cn("size-3.5 transition", open && "rotate-180")} />
           </button>
         )}
       </div>
@@ -647,9 +664,56 @@ function ScoreQuestion(props: {
       <ScoreButtons compact scale={props.scale} value={props.value} onChange={props.onChange} lowLabel={props.low} highLabel={props.high} />
       {band && (
         <p className="mt-1 text-xs text-primary">
-          {BAND_NAMES[bandIndex(props.value!)]}: {band}
+          {bandNames[bandIndex(props.value!)]}: {band}
         </p>
       )}
+    </div>
+  );
+}
+
+/** The help dialog's short groups: a coloured card with a code badge, a title and one to three points each, plus the language switch. */
+function HelpGroups({ groups, onSwitchLang }: { groups: HelpGroup[]; onSwitchLang: (() => void) | null }) {
+  const { ui } = useContext(RubricCtx);
+  const tint = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+  return (
+    <div className="space-y-2">
+      {onSwitchLang && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onSwitchLang}>
+            <Languages /> {ui.switchLang}
+          </Button>
+        </div>
+      )}
+      <ol className="space-y-2">
+        {groups.map((g) => {
+          const { color } = g;
+          return (
+            <li
+              key={g.code}
+              className="relative flex gap-3 overflow-hidden rounded-lg border py-2.5 pr-2.5 pl-4"
+              style={{ background: tint(color, 6), borderColor: tint(color, 25) }}
+            >
+              <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: color }} />
+              <span
+                className="flex h-6 min-w-10 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-xs font-semibold"
+                style={{ background: tint(color, 15), color }}
+              >
+                {g.code}
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-semibold" style={{ color }}>
+                  {g.title}
+                </p>
+                {g.points.map((p) => (
+                  <p key={p} className="text-sm leading-relaxed text-muted-foreground">
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -718,12 +782,13 @@ function Chip(props: {
 
 /** Picks what a box is about: one of A1–A8 (each in its own colour), or a flag (folded away until needed). */
 function TagPanel(props: { value: string; onChange: (v: string) => void; criteria: C[]; color: (tag: string) => string }) {
+  const R = useContext(RubricCtx);
   const [flagsOpen, setFlagsOpen] = useState(props.value.startsWith(FLAG_PREFIX));
   return (
     <div className="space-y-1">
       <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
         {props.criteria.map((c) => {
-          const t = criterionText(c.key);
+          const t = R.criterionText(c.key);
           return (
             <Chip key={c.id} active={props.value === c.id} color={props.color(c.id)} onClick={() => props.onChange(c.id)}>
               <b className="font-semibold">{t?.code ?? c.labelEn}</b> {t?.label ?? c.labelLocal}
@@ -733,7 +798,7 @@ function TagPanel(props: { value: string; onChange: (v: string) => void; criteri
       </div>
       {flagsOpen ? (
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-3">
-          {FLAGS.map((f) => {
+          {R.flags.map((f) => {
             const v = `${FLAG_PREFIX}${f.value}`;
             return (
               <Chip key={v} active={props.value === v} color={props.color(v)} dashed onClick={() => props.onChange(v)}>
@@ -744,7 +809,7 @@ function TagPanel(props: { value: string; onChange: (v: string) => void; criteri
         </div>
       ) : (
         <button type="button" className="text-xs text-primary hover:underline" onClick={() => setFlagsOpen(true)}>
-          + වෙනත් ලකුණු (කියවිය නොහැකි අකුර, කපා හැරීම, සැරසිලි…)
+          {R.ui.moreFlags}
         </button>
       )}
     </div>
@@ -767,6 +832,7 @@ function LayersPanel(props: {
   onSelect: (i: number) => void;
   onRemove: (i: number) => void;
 }) {
+  const { ui } = useContext(RubricCtx);
   const [open, setOpen] = useState<Set<string>>(new Set());
   // Folded by default so the scan gets the full width; the rater's choice is remembered on this device.
   const [expanded, setExpanded] = useState(false);
@@ -800,7 +866,7 @@ function LayersPanel(props: {
   if (!expanded) {
     return (
       <section
-        aria-label="ස්ථර"
+        aria-label={ui.layers}
         className={cn(
           "flex shrink-0 flex-wrap items-center gap-1 rounded-lg border bg-card p-1 lg:w-11 lg:flex-col lg:flex-nowrap lg:overflow-y-auto",
           props.className,
@@ -809,8 +875,8 @@ function LayersPanel(props: {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="ස්ථර පෙන්වන්න"
-          title="ස්ථර (layers) පෙන්වන්න"
+          aria-label={ui.layersOpen}
+          title={ui.layersOpenTitle}
           aria-expanded={false}
           onClick={() => setPanel(true)}
         >
@@ -826,8 +892,8 @@ function LayersPanel(props: {
               type="button"
               disabled={empty}
               aria-pressed={!off}
-              aria-label={off ? `${l.label} පෙන්වන්න` : `${l.label} සඟවන්න`}
-              title={empty ? `${l.label}: කොටු නැත` : `${l.label} (${l.boxes.length}) — ${off ? "පෙන්වන්න" : "සඟවන්න"}`}
+              aria-label={`${l.label} ${off ? ui.show : ui.hide}`}
+              title={empty ? `${l.label}: ${ui.noBoxes}` : `${l.label} (${l.boxes.length}) — ${off ? ui.show : ui.hide}`}
               onClick={() => props.onToggleLayer(l.tag)}
               className={cn(
                 "relative flex h-7 min-w-8 shrink-0 items-center justify-center rounded-md border-2 px-1 text-[11px] font-semibold transition",
@@ -851,19 +917,19 @@ function LayersPanel(props: {
 
   return (
     <section
-      aria-label="ස්ථර"
+      aria-label={ui.layers}
       className={cn("flex shrink-0 flex-col overflow-hidden rounded-lg border bg-card lg:w-64", props.className)}
     >
       <div className="flex items-center gap-1 border-b px-2 py-1.5">
         <Layers className="size-4 text-muted-foreground" />
-        <span className="text-sm font-semibold">ස්ථර</span>
+        <span className="text-sm font-semibold">{ui.layers}</span>
         <span className="text-xs text-muted-foreground">(layers)</span>
         <Button
           variant="ghost"
           size="icon-sm"
           className="order-last"
-          aria-label="ස්ථර හකුළන්න"
-          title="හකුළන්න (scan එක ලොකු කරන්න)"
+          aria-label={ui.layersFold}
+          title={ui.layersFoldTitle}
           aria-expanded
           onClick={() => setPanel(false)}
         >
@@ -874,8 +940,8 @@ function LayersPanel(props: {
             variant="ghost"
             size="icon-sm"
             className="ml-auto"
-            aria-label={props.allHidden ? "සියලු කොටු පෙන්වන්න" : "සියලු කොටු සඟවන්න"}
-            title={props.allHidden ? "සියලු කොටු පෙන්වන්න" : "සියලු කොටු සඟවන්න"}
+            aria-label={props.allHidden ? ui.allShow : ui.allHide}
+            title={props.allHidden ? ui.allShow : ui.allHide}
             onClick={props.onToggleAll}
           >
             {eye(!props.allHidden)}
@@ -883,7 +949,7 @@ function LayersPanel(props: {
         )}
       </div>
       {props.layers.length === 0 ? (
-        <p className="p-3 text-xs text-muted-foreground">කොටු තවම නැත. ඔබ අඳින කොටු මෙහි ස්ථර ලෙස පෙනේ.</p>
+        <p className="p-3 text-xs text-muted-foreground">{ui.noLayers}</p>
       ) : (
         <ul className={cn("divide-y overflow-y-auto", props.allHidden && "opacity-50")}>
           {props.layers.map((l) => {
@@ -898,8 +964,8 @@ function LayersPanel(props: {
                     size="icon-sm"
                     disabled={empty}
                     aria-pressed={!off}
-                    aria-label={off ? `${l.label} පෙන්වන්න` : `${l.label} සඟවන්න`}
-                    title={off ? "මෙම ස්ථරය පෙන්වන්න" : "මෙම ස්ථරය සඟවන්න"}
+                    aria-label={`${l.label} ${off ? ui.show : ui.hide}`}
+                    title={off ? ui.layerShow : ui.layerHide}
                     onClick={() => props.onToggleLayer(l.tag)}
                   >
                     {eye(!off)}
@@ -933,8 +999,8 @@ function LayersPanel(props: {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={b.hidden || off ? "පෙන්වන්න" : "සඟවන්න"}
-                            title={b.hidden || off ? "පෙන්වන්න" : "සඟවන්න"}
+                            aria-label={b.hidden || off ? ui.show : ui.hide}
+                            title={b.hidden || off ? ui.show : ui.hide}
                             onClick={() => props.onToggleBox(b.uid, l.tag)}
                           >
                             {eye(!b.hidden, off)}
@@ -958,7 +1024,7 @@ function LayersPanel(props: {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            aria-label="කොටුව clear කරන්න"
+                            aria-label={ui.clearBox}
                             title="Clear"
                             onClick={() => props.onRemove(b.i)}
                           >
@@ -997,14 +1063,16 @@ function RegionEditor(props: {
   onPatch: (p: Partial<Region>) => void;
   onDone: () => void;
 }) {
+  const R = useContext(RubricCtx);
+  const { ui } = R;
   const r = props.region;
   const value = r.flag ? `${FLAG_PREFIX}${r.flag}` : r.criterionId;
-  const tags = r.flag ? [] : (ISSUE_TAGS[props.criterionKey ?? ""] ?? []);
+  const tags = r.flag ? [] : (R.issueTags[props.criterionKey ?? ""] ?? []);
   const [changing, setChanging] = useState(false);
   return (
     <div className="space-y-2.5 border-l-4 px-3 pt-1 pb-3" style={{ borderLeftColor: props.color(value) }}>
       {changing ? (
-        <Field label="කුමක් ගැනද?">
+        <Field label={ui.whatAbout}>
           <TagPanel
             value={value}
             onChange={(v) => {
@@ -1021,11 +1089,11 @@ function RegionEditor(props: {
         </Field>
       ) : (
         <button type="button" className="text-xs text-primary hover:underline" onClick={() => setChanging(true)}>
-          නිර්ණායකය වෙනස් කරන්න
+          {ui.changeCriterion}
         </button>
       )}
       {tags.length > 0 && (
-        <Field label="ගැටලුව">
+        <Field label={ui.issue}>
           <div className="flex flex-wrap gap-1">
             {tags.map((t) => (
               <Chip key={t.value} active={r.issueTag === t.value} onClick={() => props.onPatch({ issueTag: r.issueTag === t.value ? null : t.value })}>
@@ -1035,10 +1103,10 @@ function RegionEditor(props: {
           </div>
         </Field>
       )}
-      {props.criterionKey === "a1" && (
-        <Field label="අකුරේ කොටස (අනිවාර්ය නොවේ)">
+      {R.partsKey !== null && props.criterionKey === R.partsKey && (
+        <Field label={ui.part}>
           <div className="flex flex-wrap gap-1">
-            {PARTS.map((p) => (
+            {R.parts.map((p) => (
               <Chip key={p.value} active={r.part === p.value} onClick={() => props.onPatch({ part: r.part === p.value ? null : p.value })}>
                 {p.label}
               </Chip>
@@ -1047,11 +1115,11 @@ function RegionEditor(props: {
         </Field>
       )}
       {!r.flag && (
-        <Field label="බරපතලකම">
-          <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label="බරපතලකම">
+        <Field label={ui.severity}>
+          <div className="grid grid-cols-2 gap-1" role="radiogroup" aria-label={ui.severity}>
             {([2, 3] as const).map((sv) => (
               <Chip key={sv} active={r.severity === sv} onClick={() => props.onPatch({ severity: sv })}>
-                <b>{sv}</b> · {SEVERITY[sv]}
+                <b>{sv}</b> · {R.severity[sv]}
               </Chip>
             ))}
           </div>
@@ -1060,12 +1128,12 @@ function RegionEditor(props: {
       <div className="flex gap-2">
         <Input
           className="h-8 flex-1 text-sm"
-          placeholder="සටහන (අනිවාර්ය නොවේ)"
+          placeholder={ui.note}
           value={r.note}
           onChange={(e) => props.onPatch({ note: e.target.value })}
         />
         <Button size="sm" onClick={props.onDone}>
-          <Check /> හරි
+          <Check /> {ui.ok}
         </Button>
       </div>
     </div>
