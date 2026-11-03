@@ -302,7 +302,7 @@ export function MainRatingForm(props: {
                 !drawMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Hand className="size-4" /> Move
+              <Hand className="size-4" /> {ui.move}
             </button>
             <button
               type="button"

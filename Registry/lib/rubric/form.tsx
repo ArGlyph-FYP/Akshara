@@ -52,6 +52,8 @@ export interface FormUi {
   paragraph: (at: number, of: number) => string;
   help: string;
   blockChanged: ReactNode;
+  /** Label of the Move / zoom tool button. */
+  move: string;
   draw: string;
   showBoxes: string;
   hideBoxes: string;
@@ -129,6 +131,7 @@ const SI: FormRubric = {
         මෙතැන් සිට ඇත්තේ <b>වෙනත් පාඨයකි (පාඨය 2)</b>. එකම පාඨය විවිධ අය ලියූ ඡේද ඔබට පෙනේ.
       </>
     ),
+    move: "Move",
     draw: "දුර්වල තැනක් සලකුණු කරන්න",
     showBoxes: "කොටු පෙන්වන්න",
     hideBoxes: "කොටු සඟවන්න",
@@ -241,14 +244,14 @@ const TA: FormRubric = {
   helpGroups: TA_HELP.map(({ code, color, title, points }) => ({ code, color, title, points })),
   hints: {
     move: [
-      { icon: "zoom", text: "பெரிதாக்க: + / − அல்லது இரு விரல்" },
-      { icon: "drag", text: "இழுத்து நகர்த்தலாம்" },
+      { icon: "zoom", text: "அளவை மாற்ற: + / − அல்லது இரு விரல்கள்" },
+      { icon: "drag", text: "இழுத்து நகர்த்தவும்" },
       { icon: "optional", text: "குறிப்பது கட்டாயமில்லை" },
     ],
     draw: [
       { icon: "draw", text: "இழுத்துப் பெட்டி வரையவும்" },
-      { icon: "drag", text: "நகர்த்த: Move" },
-      { icon: "zoom", text: "பெரிதாக்க: + / − அல்லது இரு விரல்" },
+      { icon: "drag", text: "நகர்த்த: நகர்த்து" },
+      { icon: "zoom", text: "அளவை மாற்ற: + / − அல்லது இரு விரல்கள்" },
     ],
   },
   bandHowto: "முதலில் பொருந்தும் பிரிவைத் தேர்ந்தெடுங்கள்; பின்னர் அதில் குறைந்த அல்லது உயர்ந்த எண்ணைத் தேர்ந்தெடுங்கள்.",
@@ -275,7 +278,8 @@ const TA: FormRubric = {
         இங்கிருந்து <b>வேறு ஒரு உரை (உரை 2)</b> வருகிறது. ஒரே உரையைப் பலர் எழுதிய பந்திகளைக் காண்பீர்கள்.
       </>
     ),
-    draw: "குறைபாடுள்ள பகுதியைக் குறிக்கவும்",
+    move: "நகர்த்து",
+    draw: "மேம்பாட்டைக் குறிக்கவும்",
     showBoxes: "பெட்டிகளைக் காட்டு",
     hideBoxes: "பெட்டிகளை மறை",
     opacity: "பெட்டிகளின் தெளிவு",
@@ -381,6 +385,7 @@ const TA_EN: FormRubric = {
         From here on it is <b>a different text (text 2)</b>. You will see the same text written by different people.
       </>
     ),
+    move: "Move",
     draw: "Mark a weak area",
     showBoxes: "Show boxes",
     hideBoxes: "Hide boxes",
