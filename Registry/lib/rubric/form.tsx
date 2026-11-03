@@ -13,6 +13,12 @@ export interface HelpGroup {
   points: string[];
 }
 
+/** A short hint under the scan toolbar, shown as an icon chip. */
+export interface Hint {
+  icon: "zoom" | "drag" | "draw" | "optional";
+  text: string;
+}
+
 /** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
 export interface FormRubric {
   instructions: string[];
@@ -35,6 +41,8 @@ export interface FormRubric {
   parts: { value: string; label: string }[];
   flags: { value: string; label: string }[];
   severity: Record<2 | 3, string>;
+  /** When set, the scan hints show as icon chips (move mode / draw mode) instead of the hint sentence. */
+  hints: { move: Hint[]; draw: Hint[] } | null;
   ui: FormUi;
 }
 
@@ -96,6 +104,7 @@ export interface FormUi {
 const SI: FormRubric = {
   instructions: si.INSTRUCTIONS,
   helpGroups: null,
+  hints: null,
   bandHowto: si.BAND_HOWTO,
   bandNames: si.BAND_NAMES,
   overall: si.OVERALL,
@@ -230,6 +239,18 @@ const TA_HELP: (HelpGroup & { titleEn: string; pointsEn: string[] })[] = [
 const TA: FormRubric = {
   instructions: ta.INSTRUCTIONS,
   helpGroups: TA_HELP.map(({ code, color, title, points }) => ({ code, color, title, points })),
+  hints: {
+    move: [
+      { icon: "zoom", text: "பெரிதாக்க: + / − அல்லது இரு விரல்" },
+      { icon: "drag", text: "இழுத்து நகர்த்தலாம்" },
+      { icon: "optional", text: "குறிப்பது கட்டாயமில்லை" },
+    ],
+    draw: [
+      { icon: "draw", text: "இழுத்துப் பெட்டி வரையவும்" },
+      { icon: "drag", text: "நகர்த்த: Move" },
+      { icon: "zoom", text: "பெரிதாக்க: + / − அல்லது இரு விரல்" },
+    ],
+  },
   bandHowto: "முதலில் பொருந்தும் பிரிவைத் தேர்ந்தெடுங்கள்; பின்னர் அதில் குறைந்த அல்லது உயர்ந்த எண்ணைத் தேர்ந்தெடுங்கள்.",
   bandNames: ta.BAND_NAMES,
   overall: ta.OVERALL,
@@ -312,6 +333,18 @@ const TA: FormRubric = {
 const TA_EN: FormRubric = {
   ...TA,
   helpGroups: TA_HELP.map(({ code, color, titleEn, pointsEn }) => ({ code, color, title: titleEn, points: pointsEn })),
+  hints: {
+    move: [
+      { icon: "zoom", text: "Zoom: + / − or pinch" },
+      { icon: "drag", text: "Drag to move" },
+      { icon: "optional", text: "Marking is optional" },
+    ],
+    draw: [
+      { icon: "draw", text: "Drag to draw a box" },
+      { icon: "drag", text: "To move: Move" },
+      { icon: "zoom", text: "Zoom: + / − or pinch" },
+    ],
+  },
   bandHowto: "First choose the band whose description fits the paragraph, then choose its lower or higher number.",
   bandNames: ta.BAND_NAMES_EN,
   overall: {
