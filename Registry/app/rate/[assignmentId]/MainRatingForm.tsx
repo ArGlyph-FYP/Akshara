@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { formRubric, type FormRubric } from "@/lib/rubric/form";
+import { formRubric, type FormRubric, type HelpGroup } from "@/lib/rubric/form";
 import { ALTERATIONS, BAND_RANGES, DECORATIONS, bandIndex, type Alterations, type Bands, type Decoration } from "@/lib/rubric/si";
 import type { Region, Scale, Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -542,11 +542,15 @@ export function MainRatingForm(props: {
             <DialogTitle>{ui.helpTitle}</DialogTitle>
             <DialogDescription>{ui.help}</DialogDescription>
           </DialogHeader>
-          <ul className="list-disc space-y-1.5 pl-5 text-sm">
-            {R.instructions.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
+          {R.helpGroups ? (
+            <HelpGroups groups={R.helpGroups} />
+          ) : (
+            <ul className="list-disc space-y-1.5 pl-5 text-sm">
+              {R.instructions.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          )}
           <div className="rounded-lg bg-muted/60 p-3 text-sm">
             <p className="mb-2">{R.bandHowto}</p>
             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
@@ -644,6 +648,38 @@ function ScoreQuestion(props: {
           {bandNames[bandIndex(props.value!)]}: {band}
         </p>
       )}
+    </div>
+  );
+}
+
+/** The help dialog's short groups: a code badge, a title and one to three points each, in the local language or English. */
+function HelpGroups({ groups }: { groups: HelpGroup[] }) {
+  const { ui } = useContext(RubricCtx);
+  const [english, setEnglish] = useState(false);
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEnglish((v) => !v)}>
+          {english ? ui.helpLocal : ui.helpEnglish}
+        </Button>
+      </div>
+      <ol className="space-y-2">
+        {groups.map((g) => (
+          <li key={g.code} className="flex gap-3 rounded-lg border bg-card p-2.5">
+            <span className="flex h-6 min-w-10 shrink-0 items-center justify-center rounded-md bg-brand-soft px-1.5 font-mono text-xs font-semibold text-primary">
+              {g.code}
+            </span>
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-semibold">{g.title}</p>
+              {(english ? g.pointsEn : g.points).map((p) => (
+                <p key={p} className="text-sm leading-relaxed text-muted-foreground">
+                  {p}
+                </p>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

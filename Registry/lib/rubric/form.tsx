@@ -5,8 +5,18 @@ import * as ta from "./ta";
 import type { Bands, ScoreQuestion } from "./si";
 
 /** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
+/** One short block of the help dialog: a code badge (H1, L1, C1–C8…), a title and a few short points. */
+export interface HelpGroup {
+  code: string;
+  title: string;
+  points: string[];
+  pointsEn: string[];
+}
+
 export interface FormRubric {
   instructions: string[];
+  /** When set, the help dialog shows these short groups (with an English toggle) instead of the instruction list. */
+  helpGroups: HelpGroup[] | null;
   bandHowto: string;
   bandNames: Bands;
   overall: ScoreQuestion;
@@ -52,6 +62,9 @@ export interface FormUi {
   finish: string;
   next: string;
   helpTitle: string;
+  /** Label of the button that switches the help groups to English and back. */
+  helpEnglish: string;
+  helpLocal: string;
   start: string;
   calTitle: string;
   calBody: (you: { overall: ReactNode; legibility: ReactNode }, ref: { overall: ReactNode; legibility: ReactNode }) => ReactNode;
@@ -82,6 +95,7 @@ export interface FormUi {
 
 const SI: FormRubric = {
   instructions: si.INSTRUCTIONS,
+  helpGroups: null,
   bandHowto: si.BAND_HOWTO,
   bandNames: si.BAND_NAMES,
   overall: si.OVERALL,
@@ -125,6 +139,8 @@ const SI: FormRubric = {
     finish: "අවසන් කරන්න",
     next: "ඊළඟ",
     helpTitle: "ඇගයීමට පෙර කියවන්න",
+    helpEnglish: "English",
+    helpLocal: "සිංහල",
     start: "හරි, ආරම්භ කරමු",
     calTitle: "ක්‍රමාංකන යොමුව",
     calBody: (you, ref) => (
@@ -162,7 +178,48 @@ const SI: FormRubric = {
 /** Tamil form wording is a first draft; a native Tamil reviewer must check it before the pilot. */
 const TA: FormRubric = {
   instructions: ta.INSTRUCTIONS,
-  bandHowto: ta.BAND_HOWTO,
+  // The rubric's rater instructions, shortened and grouped so the dialog reads at a glance.
+  helpGroups: [
+    {
+      code: "1",
+      title: "தொடங்கும் முன்",
+      points: ["முதலில் முழுப் பந்தியையும் பாருங்கள்; பின்னர் பெரிதாக்கலாம்.", "உங்கள் சொந்தக் கையெழுத்தை மதிப்பிட வேண்டாம்."],
+      pointsEn: ["Look at the whole paragraph first, then zoom.", "Do not rate your own writing."],
+    },
+    {
+      code: "H1",
+      title: "முழுமையான அழகு",
+      points: ["முதல் பார்வையில் தோன்றுவதை வைத்து H1 வழங்குங்கள்.", "பின்னர் அதை மாற்ற வேண்டாம்."],
+      pointsEn: ["Give H1 from your first impression.", "Do not change it afterwards."],
+    },
+    {
+      code: "L1",
+      title: "வாசிப்புத் தெளிவு",
+      points: ["அழகைப் பொருட்படுத்தாமல், எவ்வளவு எளிதாக வாசிக்க முடிகிறது என்பதை மட்டும் மதிப்பிடுங்கள்."],
+      pointsEn: ["Rate only how easy it is to read, not how beautiful it is."],
+    },
+    {
+      code: "C1–C8",
+      title: "எட்டு அளவுகோல்கள்",
+      points: [
+        "ஒவ்வொன்றையும் தனித்தனியாக, முழுப் பந்தியையும் வைத்து மதிப்பிடுங்கள்.",
+        "ஒரு சிறிய குறைக்காக 1 அல்லது 2 வழங்க வேண்டாம்.",
+        "9–10 வழங்க முழுமை தேவையில்லை.",
+      ],
+      pointsEn: [
+        "Rate each one separately, across the whole paragraph.",
+        "One small defect is not a reason for 1 or 2.",
+        "9–10 does not require perfection.",
+      ],
+    },
+    {
+      code: "✕",
+      title: "கவனிக்க வேண்டாதவை",
+      points: ["எழுத்துப்பிழை, பொருள், பேனா நிறம், காகிதம், அலங்காரம்.", "கிரந்த எழுத்துகள் உட்பட ஏற்கப்பட்ட கையெழுத்து வடிவங்கள் பிழை அல்ல."],
+      pointsEn: ["Spelling, meaning, pen colour, paper and decoration.", "Accepted handwritten variants, including Grantha letters, are not errors."],
+    },
+  ],
+  bandHowto: "முதலில் பொருந்தும் பிரிவைத் தேர்ந்தெடுங்கள்; பின்னர் அதில் குறைந்த அல்லது உயர்ந்த எண்ணைத் தேர்ந்தெடுங்கள்.",
   bandNames: ta.BAND_NAMES,
   overall: ta.OVERALL,
   legibility: ta.LEGIBILITY,
@@ -205,6 +262,8 @@ const TA: FormRubric = {
     finish: "முடிக்கவும்",
     next: "அடுத்து",
     helpTitle: "மதிப்பிடுவதற்கு முன் படிக்கவும்",
+    helpEnglish: "English",
+    helpLocal: "தமிழ்",
     start: "சரி, தொடங்குவோம்",
     calTitle: "அளவுத்திருத்தக் குறிப்பு",
     calBody: (you, ref) => (
