@@ -5,7 +5,8 @@ import { assertStaff } from "@/lib/auth";
 import { newId } from "@/lib/codes";
 import { col, criteriaFor, db, getSample, getStudy } from "@/lib/data";
 import { assignNextBatch } from "@/lib/public";
-import { ALTERATIONS, DECORATIONS, FLAGS, ISSUE_TAGS, PARTS, type Alterations, type Decoration } from "@/lib/rubric/si";
+import { formRubric } from "@/lib/rubric/form";
+import { ALTERATIONS, DECORATIONS, type Alterations, type Decoration } from "@/lib/rubric/si";
 import type { Assignment, Rating, Region, Scale } from "@/lib/types";
 
 export interface RatingInput {
@@ -83,15 +84,17 @@ export async function submitRating(input: RatingInput) {
       if (decoration !== null && !DECORATIONS.includes(decoration)) throw new Error("Bad decoration answer");
       if (alterations !== null && !ALTERATIONS.includes(alterations)) throw new Error("Bad alterations answer");
       if (study.script === "si" && (decoration === null || alterations === null)) throw new Error("සැරසිලි සහ කපා හැරීම් ප්‍රශ්නවලට පිළිතුරු දෙන්න");
+      // Box tags, flags and letter parts follow the study's script (Sinhala A1–A8, Tamil C1–C8).
+      const rubric = formRubric(study.script);
       const keyOf = new Map(criteria.map((c) => [c.id, c.key]));
-      const flags = new Set<string>(FLAGS.map((f) => f.value));
-      const parts = new Set(PARTS.map((p) => p.value));
+      const flags = new Set<string>(rubric.flags.map((f) => f.value));
+      const parts = new Set(rubric.parts.map((p) => p.value));
       const regions: Region[] = (input.regions ?? []).slice(0, 100).map((g) => {
         const flag = g.flag && flags.has(g.flag) ? g.flag : null;
         if (!flag && !keyOf.has(g.criterionId)) throw new Error("Every region needs a criterion");
-        const tags = flag ? null : ISSUE_TAGS[keyOf.get(g.criterionId)!];
+        const tags = flag ? null : rubric.issueTags[keyOf.get(g.criterionId)!];
         const issueTag = g.issueTag && tags?.some((t) => t.value === g.issueTag) ? g.issueTag : null;
-        const part = !flag && keyOf.get(g.criterionId) === "a1" && g.part && parts.has(g.part) ? g.part : null;
+        const part = !flag && keyOf.get(g.criterionId) === rubric.partsKey && g.part && parts.has(g.part) ? g.part : null;
         return {
           criterionId: flag ? "" : g.criterionId,
           ...clampBox(g),

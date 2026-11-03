@@ -315,4 +315,76 @@ export const CONFIDENCE: { value: "low" | "medium" | "high"; label: string }[] =
 ];
 
 export const WEAKNESS_Q = "முக்கியமான காட்சி குறையும் அதன் இடமும்";
-export const COMMENT_Q = "Optional comment";
+export const COMMENT_Q = "இந்தக் கையெழுத்தின் தோற்றத்தைப் பாதிக்கும் வேறு ஏதேனும் உள்ளதா?";
+
+/**
+ * Weak-region issue tags per criterion (value = stored English tag). The rubric document gives no closed list,
+ * so these are a first draft taken from each criterion's look-fors; a native Tamil reviewer must check them.
+ */
+export const ISSUE_TAGS: Record<string, { value: string; label: string }[]> = {
+  c1: [
+    { value: "part_missing", label: "உறுப்பு விடுபட்டுள்ளது" },
+    { value: "extra_part", label: "தேவையற்ற பகுதி" },
+    { value: "curve_loop_distorted", label: "வளைவு / சுழி சிதைந்துள்ளது" },
+    { value: "looks_like_other", label: "வேறு எழுத்தைப் போலத் தோன்றுகிறது" },
+    { value: "inconsistent_form", label: "ஒரே எழுத்து வேறு வடிவில்" },
+  ],
+  c2: [
+    { value: "pulli_misplaced", label: "புள்ளி தவறான இடத்தில்" },
+    { value: "pulli_wrong_size", label: "புள்ளி மிகப் பெரியது / வெற்று" },
+    { value: "sign_misplaced", label: "உயிர்க்குறி தவறான இடத்தில்" },
+    { value: "sign_wrong_size", label: "குறி தவறான அளவில்" },
+    { value: "sign_drifts", label: "குறி அடுத்த எழுத்தை நெருங்குகிறது" },
+    { value: "two_part_split", label: "இரு பகுதிக் குறி (கொ, கோ, கௌ) விலகியுள்ளது" },
+  ],
+  c3: [
+    { value: "body_size_jump", label: "எழுத்தளவு திடீரென மாறுகிறது" },
+    { value: "extension_disproportionate", label: "நீட்சி (கு, கூ, கீ) விகிதமின்றி" },
+    { value: "sign_height_off", label: "குறியின் உயரம் பொருந்தவில்லை" },
+  ],
+  c4: [
+    { value: "letters_touching", label: "எழுத்துகள் தொடுகின்றன / இணைந்துள்ளன" },
+    { value: "letters_crowded", label: "எழுத்துகள் நெருக்கமாக" },
+    { value: "false_gap", label: "சொல்லினுள் தேவையற்ற இடைவெளி" },
+  ],
+  c5: [
+    { value: "words_run_together", label: "சொற்கள் ஒன்றோடொன்று இணைகின்றன" },
+    { value: "word_gap_too_small", label: "சொல் இடைவெளி மிகக் குறைவு" },
+    { value: "word_gap_too_large", label: "சொல் இடைவெளி மிக அதிகம்" },
+  ],
+  c6: [
+    { value: "above_line", label: "வரிக்கு மேலே எழுகிறது" },
+    { value: "below_line", label: "வரிக்குக் கீழே இறங்குகிறது" },
+    { value: "line_drifts", label: "வரி ஏறுகிறது / இறங்குகிறது / அலைகிறது" },
+    { value: "slant_changes", label: "சாய்வு மாறுகிறது" },
+  ],
+  c7: [
+    { value: "lines_collide", label: "வரிகள் மோதுகின்றன" },
+    { value: "line_gap_uneven", label: "வரி இடைவெளி சீரில்லை" },
+    { value: "margin_drifts", label: "இடது ஓரம் நகர்கிறது" },
+    { value: "edge_crowding", label: "எழுதும் பகுதியின் ஓரத்தை நெருங்குகிறது" },
+  ],
+  c8: [
+    { value: "overwritten", label: "மேல் எழுதப்பட்டுள்ளது" },
+    { value: "struck_out", label: "அடிக்கப்பட்ட சொல்" },
+    { value: "shaky_stroke", label: "நடுங்கும் கோடு" },
+    { value: "retraced", label: "மீண்டும் வரைந்த கோடு" },
+    { value: "overshoot", label: "வால் / கொக்கி அதிகமாக நீள்கிறது" },
+    { value: "blot", label: "கறை / தேவையற்ற குறி" },
+  ],
+};
+
+/** Tamil boxes have no letter-part list (the Sinhala A1 parts don't carry over). */
+export const PARTS: { value: string; label: string }[] = [];
+
+/** Flags for boxes that are not about one criterion. Decoration is excluded from the Tamil judgement, so it has no flag. */
+export const FLAGS: { value: "illegible" | "correction" | "copy_error"; label: string }[] = [
+  { value: "illegible", label: "வாசிக்க இயலாத எழுத்து" },
+  { value: "correction", label: "அடித்தல் / திருத்தம்" },
+  { value: "copy_error", label: "நகல் பிழை (தவறான / விடுபட்ட எழுத்து அல்லது குறி)" },
+];
+
+export const SEVERITY = {
+  2: "சாதாரண தூரத்தில் தெளிவாகத் தெரிகிறது",
+  3: "சொல்லையோ வரியையோ பாதிக்கிறது",
+} as const;
