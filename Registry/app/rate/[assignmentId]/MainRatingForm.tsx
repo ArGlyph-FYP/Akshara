@@ -652,10 +652,11 @@ function ScoreQuestion(props: {
   );
 }
 
-/** The help dialog's short groups: a code badge, a title and one to three points each, in the local language or English. */
+/** The help dialog's short groups: a coloured card with a code badge, a title and one to three points each, in the local language or English. */
 function HelpGroups({ groups }: { groups: HelpGroup[] }) {
   const { ui } = useContext(RubricCtx);
   const [english, setEnglish] = useState(false);
+  const tint = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
   return (
     <div className="space-y-2">
       <div className="flex justify-end">
@@ -664,21 +665,34 @@ function HelpGroups({ groups }: { groups: HelpGroup[] }) {
         </Button>
       </div>
       <ol className="space-y-2">
-        {groups.map((g) => (
-          <li key={g.code} className="flex gap-3 rounded-lg border bg-card p-2.5">
-            <span className="flex h-6 min-w-10 shrink-0 items-center justify-center rounded-md bg-brand-soft px-1.5 font-mono text-xs font-semibold text-primary">
-              {g.code}
-            </span>
-            <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-semibold">{g.title}</p>
-              {(english ? g.pointsEn : g.points).map((p) => (
-                <p key={p} className="text-sm leading-relaxed text-muted-foreground">
-                  {p}
+        {groups.map((g) => {
+          const { color } = g;
+          return (
+            <li
+              key={g.code}
+              className="relative flex gap-3 overflow-hidden rounded-lg border py-2.5 pr-2.5 pl-4"
+              style={{ background: tint(color, 6), borderColor: tint(color, 25) }}
+            >
+              <span aria-hidden className="absolute inset-y-0 left-0 w-1.5" style={{ background: color }} />
+              <span
+                className="flex h-6 min-w-10 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-xs font-semibold"
+                style={{ background: tint(color, 15), color }}
+              >
+                {g.code}
+              </span>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-semibold" style={{ color }}>
+                  {g.title}
                 </p>
-              ))}
-            </div>
-          </li>
-        ))}
+                {(english ? g.pointsEn : g.points).map((p) => (
+                  <p key={p} className="text-sm leading-relaxed text-muted-foreground">
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );

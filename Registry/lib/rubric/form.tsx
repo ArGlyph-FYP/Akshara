@@ -8,6 +8,8 @@ import type { Bands, ScoreQuestion } from "./si";
 /** One short block of the help dialog: a code badge (H1, L1, C1–C8…), a title and a few short points. */
 export interface HelpGroup {
   code: string;
+  /** Card colour (strip, tint, badge and title). */
+  color: string;
   title: string;
   points: string[];
   pointsEn: string[];
@@ -182,24 +184,28 @@ const TA: FormRubric = {
   helpGroups: [
     {
       code: "1",
+      color: "#64748b",
       title: "தொடங்கும் முன்",
       points: ["முதலில் முழுப் பந்தியையும் பாருங்கள்; பின்னர் பெரிதாக்கலாம்.", "உங்கள் சொந்தக் கையெழுத்தை மதிப்பிட வேண்டாம்."],
       pointsEn: ["Look at the whole paragraph first, then zoom.", "Do not rate your own writing."],
     },
     {
       code: "H1",
+      color: "#4f46e5",
       title: "முழுமையான அழகு",
       points: ["முதல் பார்வையில் தோன்றுவதை வைத்து H1 வழங்குங்கள்.", "பின்னர் அதை மாற்ற வேண்டாம்."],
       pointsEn: ["Give H1 from your first impression.", "Do not change it afterwards."],
     },
     {
       code: "L1",
+      color: "#059669",
       title: "வாசிப்புத் தெளிவு",
       points: ["அழகைப் பொருட்படுத்தாமல், எவ்வளவு எளிதாக வாசிக்க முடிகிறது என்பதை மட்டும் மதிப்பிடுங்கள்."],
       pointsEn: ["Rate only how easy it is to read, not how beautiful it is."],
     },
     {
       code: "C1–C8",
+      color: "#d97706",
       title: "எட்டு அளவுகோல்கள்",
       points: [
         "ஒவ்வொன்றையும் தனித்தனியாக, முழுப் பந்தியையும் வைத்து மதிப்பிடுங்கள்.",
@@ -214,6 +220,7 @@ const TA: FormRubric = {
     },
     {
       code: "✕",
+      color: "#dc2626",
       title: "கவனிக்க வேண்டாதவை",
       points: ["எழுத்துப்பிழை, பொருள், பேனா நிறம், காகிதம், அலங்காரம்.", "கிரந்த எழுத்துகள் உட்பட ஏற்கப்பட்ட கையெழுத்து வடிவங்கள் பிழை அல்ல."],
       pointsEn: ["Spelling, meaning, pen colour, paper and decoration.", "Accepted handwritten variants, including Grantha letters, are not errors."],
