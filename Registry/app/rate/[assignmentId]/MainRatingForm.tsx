@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
+import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
 import { useNextItem } from "@/lib/useNextItem";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { formRubric, type FormRubric, type HelpGroup } from "@/lib/rubric/form";
+import { formRubric, formRubricEnglish, type FormRubric, type HelpGroup } from "@/lib/rubric/form";
 import { ALTERATIONS, BAND_RANGES, DECORATIONS, bandIndex, type Alterations, type Bands, type Decoration } from "@/lib/rubric/si";
 import type { Region, Scale, Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,21 @@ export function MainRatingForm(props: {
   criteria: C[];
 }) {
   const { criteria } = props;
-  const R = formRubric(props.script);
+  // Tamil forms can switch to English; the rater's choice is remembered on this device.
+  const englishR = formRubricEnglish(props.script);
+  const [english, setEnglish] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("akshara.formLang") === "en") setEnglish(true);
+    } catch {}
+  }, []);
+  const switchLang = () => {
+    setEnglish(!english);
+    try {
+      localStorage.setItem("akshara.formLang", english ? "local" : "en");
+    } catch {}
+  };
+  const R = english && englishR ? englishR : formRubric(props.script);
   const { ui } = R;
   const started = useRef(Date.now());
   const [overall, setOverall] = useState<number | null>(null);
@@ -260,6 +274,11 @@ export function MainRatingForm(props: {
           <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
             {ui.paragraph(props.position, props.total)}
           </span>
+          {englishR && (
+            <Button variant="outline" size="sm" className="h-7 shrink-0 text-xs" onClick={switchLang}>
+              <Languages /> {ui.switchLang}
+            </Button>
+          )}
           <Button variant="ghost" size="icon-sm" aria-label={ui.help} onClick={() => setHelp(true)}>
             <Info />
           </Button>
@@ -543,7 +562,7 @@ export function MainRatingForm(props: {
             <DialogDescription>{ui.help}</DialogDescription>
           </DialogHeader>
           {R.helpGroups ? (
-            <HelpGroups groups={R.helpGroups} />
+            <HelpGroups groups={R.helpGroups} onSwitchLang={englishR ? switchLang : null} />
           ) : (
             <ul className="list-disc space-y-1.5 pl-5 text-sm">
               {R.instructions.map((t) => (
@@ -652,18 +671,19 @@ function ScoreQuestion(props: {
   );
 }
 
-/** The help dialog's short groups: a coloured card with a code badge, a title and one to three points each, in the local language or English. */
-function HelpGroups({ groups }: { groups: HelpGroup[] }) {
+/** The help dialog's short groups: a coloured card with a code badge, a title and one to three points each, plus the language switch. */
+function HelpGroups({ groups, onSwitchLang }: { groups: HelpGroup[]; onSwitchLang: (() => void) | null }) {
   const { ui } = useContext(RubricCtx);
-  const [english, setEnglish] = useState(false);
   const tint = (color: string, pct: number) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
   return (
     <div className="space-y-2">
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setEnglish((v) => !v)}>
-          {english ? ui.helpLocal : ui.helpEnglish}
-        </Button>
-      </div>
+      {onSwitchLang && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onSwitchLang}>
+            <Languages /> {ui.switchLang}
+          </Button>
+        </div>
+      )}
       <ol className="space-y-2">
         {groups.map((g) => {
           const { color } = g;
@@ -684,7 +704,7 @@ function HelpGroups({ groups }: { groups: HelpGroup[] }) {
                 <p className="text-sm font-semibold" style={{ color }}>
                   {g.title}
                 </p>
-                {(english ? g.pointsEn : g.points).map((p) => (
+                {g.points.map((p) => (
                   <p key={p} className="text-sm leading-relaxed text-muted-foreground">
                     {p}
                   </p>
