@@ -13,6 +13,12 @@ export interface HelpGroup {
   points: string[];
 }
 
+/** A short hint under the scan toolbar, shown as an icon chip. */
+export interface Hint {
+  icon: "zoom" | "drag" | "draw" | "optional";
+  text: string;
+}
+
 /** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
 export interface FormRubric {
   instructions: string[];
@@ -35,6 +41,8 @@ export interface FormRubric {
   parts: { value: string; label: string }[];
   flags: { value: string; label: string }[];
   severity: Record<2 | 3, string>;
+  /** When set, the scan hints show as icon chips (move mode / draw mode) instead of the hint sentence. */
+  hints: { move: Hint[]; draw: Hint[] } | null;
   ui: FormUi;
 }
 
@@ -44,6 +52,8 @@ export interface FormUi {
   paragraph: (at: number, of: number) => string;
   help: string;
   blockChanged: ReactNode;
+  /** Label of the Move / zoom tool button. */
+  move: string;
   draw: string;
   showBoxes: string;
   hideBoxes: string;
@@ -96,6 +106,7 @@ export interface FormUi {
 const SI: FormRubric = {
   instructions: si.INSTRUCTIONS,
   helpGroups: null,
+  hints: null,
   bandHowto: si.BAND_HOWTO,
   bandNames: si.BAND_NAMES,
   overall: si.OVERALL,
@@ -120,6 +131,7 @@ const SI: FormRubric = {
         මෙතැන් සිට ඇත්තේ <b>වෙනත් පාඨයකි (පාඨය 2)</b>. එකම පාඨය විවිධ අය ලියූ ඡේද ඔබට පෙනේ.
       </>
     ),
+    move: "Move",
     draw: "දුර්වල තැනක් සලකුණු කරන්න",
     showBoxes: "කොටු පෙන්වන්න",
     hideBoxes: "කොටු සඟවන්න",
@@ -230,6 +242,18 @@ const TA_HELP: (HelpGroup & { titleEn: string; pointsEn: string[] })[] = [
 const TA: FormRubric = {
   instructions: ta.INSTRUCTIONS,
   helpGroups: TA_HELP.map(({ code, color, title, points }) => ({ code, color, title, points })),
+  hints: {
+    move: [
+      { icon: "zoom", text: "அளவை மாற்ற: + / − அல்லது இரு விரல்கள்" },
+      { icon: "drag", text: "இழுத்து நகர்த்தவும்" },
+      { icon: "optional", text: "குறிப்பது கட்டாயமில்லை" },
+    ],
+    draw: [
+      { icon: "draw", text: "இழுத்துப் பெட்டி வரையவும்" },
+      { icon: "drag", text: "நகர்த்த: நகர்த்து" },
+      { icon: "zoom", text: "அளவை மாற்ற: + / − அல்லது இரு விரல்கள்" },
+    ],
+  },
   bandHowto: "முதலில் பொருந்தும் பிரிவைத் தேர்ந்தெடுங்கள்; பின்னர் அதில் குறைந்த அல்லது உயர்ந்த எண்ணைத் தேர்ந்தெடுங்கள்.",
   bandNames: ta.BAND_NAMES,
   overall: ta.OVERALL,
@@ -254,7 +278,8 @@ const TA: FormRubric = {
         இங்கிருந்து <b>வேறு ஒரு உரை (உரை 2)</b> வருகிறது. ஒரே உரையைப் பலர் எழுதிய பந்திகளைக் காண்பீர்கள்.
       </>
     ),
-    draw: "குறைபாடுள்ள பகுதியைக் குறிக்கவும்",
+    move: "நகர்த்து",
+    draw: "மேம்பாட்டைக் குறிக்கவும்",
     showBoxes: "பெட்டிகளைக் காட்டு",
     hideBoxes: "பெட்டிகளை மறை",
     opacity: "பெட்டிகளின் தெளிவு",
@@ -312,6 +337,18 @@ const TA: FormRubric = {
 const TA_EN: FormRubric = {
   ...TA,
   helpGroups: TA_HELP.map(({ code, color, titleEn, pointsEn }) => ({ code, color, title: titleEn, points: pointsEn })),
+  hints: {
+    move: [
+      { icon: "zoom", text: "Zoom: + / − or pinch" },
+      { icon: "drag", text: "Drag to move" },
+      { icon: "optional", text: "Marking is optional" },
+    ],
+    draw: [
+      { icon: "draw", text: "Drag to draw a box" },
+      { icon: "drag", text: "To move: Move" },
+      { icon: "zoom", text: "Zoom: + / − or pinch" },
+    ],
+  },
   bandHowto: "First choose the band whose description fits the paragraph, then choose its lower or higher number.",
   bandNames: ta.BAND_NAMES_EN,
   overall: {
@@ -348,6 +385,7 @@ const TA_EN: FormRubric = {
         From here on it is <b>a different text (text 2)</b>. You will see the same text written by different people.
       </>
     ),
+    move: "Move",
     draw: "Mark a weak area",
     showBoxes: "Show boxes",
     hideBoxes: "Hide boxes",

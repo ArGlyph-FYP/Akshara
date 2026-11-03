@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
+import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, CircleDashed, ZoomIn, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
 import { useNextItem } from "@/lib/useNextItem";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { formRubric, formRubricEnglish, type FormRubric, type HelpGroup } from "@/lib/rubric/form";
+import { formRubric, formRubricEnglish, type FormRubric, type HelpGroup, type Hint } from "@/lib/rubric/form";
 import { ALTERATIONS, BAND_RANGES, DECORATIONS, bandIndex, type Alterations, type Bands, type Decoration } from "@/lib/rubric/si";
 import type { Region, Scale, Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -302,7 +302,7 @@ export function MainRatingForm(props: {
                 !drawMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Hand className="size-4" /> Move
+              <Hand className="size-4" /> {ui.move}
             </button>
             <button
               type="button"
@@ -356,9 +356,11 @@ export function MainRatingForm(props: {
             <TagPanel value={tag} onChange={setTag} criteria={criteria} color={tagColor} />
           </div>
         )}
-        <p className="px-0.5 text-xs text-muted-foreground">
-          {drawMode ? ui.hintDraw : ui.hintMove}
-        </p>
+        {R.hints ? (
+          <HintChips hints={drawMode ? R.hints.draw : R.hints.move} />
+        ) : (
+          <p className="px-0.5 text-xs text-muted-foreground">{drawMode ? ui.hintDraw : ui.hintMove}</p>
+        )}
         <div className="flex flex-col gap-2 lg:min-h-[200px] lg:flex-1 lg:flex-row">
           <div className="min-w-0 lg:flex-1">
           <ImageAnnotator
@@ -715,6 +717,31 @@ function HelpGroups({ groups, onSwitchLang }: { groups: HelpGroup[]; onSwitchLan
         })}
       </ol>
     </div>
+  );
+}
+
+const HINT_ICONS = { zoom: ZoomIn, drag: Hand, draw: SquareDashedMousePointer, optional: CircleDashed };
+
+/** Scan hints as small icon chips; "optional" is dashed so it reads as a note, not an action. */
+function HintChips({ hints }: { hints: Hint[] }) {
+  return (
+    <ul className="flex flex-wrap gap-1.5 px-0.5">
+      {hints.map((h) => {
+        const Icon = HINT_ICONS[h.icon];
+        return (
+          <li
+            key={h.text}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground",
+              h.icon === "optional" && "border-dashed bg-transparent",
+            )}
+          >
+            <Icon className="size-3.5 shrink-0" aria-hidden />
+            {h.text}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
