@@ -388,3 +388,68 @@ export const SEVERITY = {
   2: "சாதாரண தூரத்தில் தெளிவாகத் தெரிகிறது",
   3: "சொல்லையோ வரியையோ பாதிக்கிறது",
 } as const;
+
+/** English labels for the same tags, flags and severity levels (the form's English view). */
+export const ISSUE_TAGS_EN: Record<string, { value: string; label: string }[]> = {
+  c1: [
+    { value: "part_missing", label: "Component missing" },
+    { value: "extra_part", label: "Unnecessary component" },
+    { value: "curve_loop_distorted", label: "Curve / loop distorted" },
+    { value: "looks_like_other", label: "Looks like another letter" },
+    { value: "inconsistent_form", label: "Same letter written differently" },
+  ],
+  c2: [
+    { value: "pulli_misplaced", label: "Pulli misplaced" },
+    { value: "pulli_wrong_size", label: "Pulli oversized / hollow" },
+    { value: "sign_misplaced", label: "Vowel sign misplaced" },
+    { value: "sign_wrong_size", label: "Sign wrong size" },
+    { value: "sign_drifts", label: "Sign drifts towards the next letter" },
+    { value: "two_part_split", label: "Two-part sign (கொ, கோ, கௌ) split" },
+  ],
+  c3: [
+    { value: "body_size_jump", label: "Sudden size change" },
+    { value: "extension_disproportionate", label: "Tail (கு, கூ, கீ) out of proportion" },
+    { value: "sign_height_off", label: "Sign height does not match" },
+  ],
+  c4: [
+    { value: "letters_touching", label: "Letters touching / chained" },
+    { value: "letters_crowded", label: "Letters crowded" },
+    { value: "false_gap", label: "False gap inside the word" },
+  ],
+  c5: [
+    { value: "words_run_together", label: "Words run together" },
+    { value: "word_gap_too_small", label: "Word gap too small" },
+    { value: "word_gap_too_large", label: "Word gap too large" },
+  ],
+  c6: [
+    { value: "above_line", label: "Rises above the line" },
+    { value: "below_line", label: "Drops below the line" },
+    { value: "line_drifts", label: "Line rises / falls / waves" },
+    { value: "slant_changes", label: "Slant changes" },
+  ],
+  c7: [
+    { value: "lines_collide", label: "Lines collide" },
+    { value: "line_gap_uneven", label: "Uneven line gaps" },
+    { value: "margin_drifts", label: "Left margin drifts" },
+    { value: "edge_crowding", label: "Crowds the edge of the area" },
+  ],
+  c8: [
+    { value: "overwritten", label: "Overwritten" },
+    { value: "struck_out", label: "Struck-out word" },
+    { value: "shaky_stroke", label: "Shaky stroke" },
+    { value: "retraced", label: "Retraced stroke" },
+    { value: "overshoot", label: "Tail / hook overshoots" },
+    { value: "blot", label: "Blot / stray mark" },
+  ],
+};
+
+export const FLAGS_EN: typeof FLAGS = [
+  { value: "illegible", label: "Illegible letter" },
+  { value: "correction", label: "Strike-out / correction" },
+  { value: "copy_error", label: "Copying error (wrong / missing letter or sign)" },
+];
+
+export const SEVERITY_EN = {
+  2: "Clearly visible at normal viewing distance",
+  3: "Spoils the word or line",
+} as const;

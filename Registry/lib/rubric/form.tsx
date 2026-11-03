@@ -4,7 +4,6 @@ import * as si from "./si";
 import * as ta from "./ta";
 import type { Bands, ScoreQuestion } from "./si";
 
-/** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
 /** One short block of the help dialog: a code badge (H1, L1, C1–C8…), a title and a few short points. */
 export interface HelpGroup {
   code: string;
@@ -12,12 +11,12 @@ export interface HelpGroup {
   color: string;
   title: string;
   points: string[];
-  pointsEn: string[];
 }
 
+/** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
 export interface FormRubric {
   instructions: string[];
-  /** When set, the help dialog shows these short groups (with an English toggle) instead of the instruction list. */
+  /** When set, the help dialog shows these short groups instead of the instruction list. */
   helpGroups: HelpGroup[] | null;
   bandHowto: string;
   bandNames: Bands;
@@ -64,9 +63,8 @@ export interface FormUi {
   finish: string;
   next: string;
   helpTitle: string;
-  /** Label of the button that switches the help groups to English and back. */
-  helpEnglish: string;
-  helpLocal: string;
+  /** Label of the button that switches the form to the other language (only shown when the script has an English view). */
+  switchLang: string;
   start: string;
   calTitle: string;
   calBody: (you: { overall: ReactNode; legibility: ReactNode }, ref: { overall: ReactNode; legibility: ReactNode }) => ReactNode;
@@ -141,8 +139,7 @@ const SI: FormRubric = {
     finish: "අවසන් කරන්න",
     next: "ඊළඟ",
     helpTitle: "ඇගයීමට පෙර කියවන්න",
-    helpEnglish: "English",
-    helpLocal: "සිංහල",
+    switchLang: "English",
     start: "හරි, ආරම්භ කරමු",
     calTitle: "ක්‍රමාංකන යොමුව",
     calBody: (you, ref) => (
@@ -177,55 +174,62 @@ const SI: FormRubric = {
   },
 };
 
+/** The Tamil rater instructions, shortened and grouped so the help dialog reads at a glance (Tamil and English). */
+const TA_HELP: (HelpGroup & { titleEn: string; pointsEn: string[] })[] = [
+  {
+    code: "1",
+    color: "#64748b",
+    title: "தொடங்கும் முன்",
+    titleEn: "Before you start",
+    points: ["முதலில் முழுப் பந்தியையும் பாருங்கள்; பின்னர் பெரிதாக்கலாம்.", "உங்கள் சொந்தக் கையெழுத்தை மதிப்பிட வேண்டாம்."],
+    pointsEn: ["Look at the whole paragraph first, then zoom.", "Do not rate your own writing."],
+  },
+  {
+    code: "H1",
+    color: "#4f46e5",
+    title: "முழுமையான அழகு",
+    titleEn: "Overall beauty",
+    points: ["முதல் பார்வையில் தோன்றுவதை வைத்து H1 வழங்குங்கள்.", "பின்னர் அதை மாற்ற வேண்டாம்."],
+    pointsEn: ["Give H1 from your first impression.", "Do not change it afterwards."],
+  },
+  {
+    code: "L1",
+    color: "#059669",
+    title: "வாசிப்புத் தெளிவு",
+    titleEn: "Legibility",
+    points: ["அழகைப் பொருட்படுத்தாமல், எவ்வளவு எளிதாக வாசிக்க முடிகிறது என்பதை மட்டும் மதிப்பிடுங்கள்."],
+    pointsEn: ["Rate only how easy it is to read, not how beautiful it is."],
+  },
+  {
+    code: "C1–C8",
+    color: "#d97706",
+    title: "எட்டு அளவுகோல்கள்",
+    titleEn: "Eight criteria",
+    points: [
+      "ஒவ்வொன்றையும் தனித்தனியாக, முழுப் பந்தியையும் வைத்து மதிப்பிடுங்கள்.",
+      "ஒரு சிறிய குறைக்காக 1 அல்லது 2 வழங்க வேண்டாம்.",
+      "9–10 வழங்க முழுமை தேவையில்லை.",
+    ],
+    pointsEn: [
+      "Rate each one separately, across the whole paragraph.",
+      "One small defect is not a reason for 1 or 2.",
+      "9–10 does not require perfection.",
+    ],
+  },
+  {
+    code: "✕",
+    color: "#dc2626",
+    title: "கவனிக்க வேண்டாதவை",
+    titleEn: "What to ignore",
+    points: ["எழுத்துப்பிழை, பொருள், பேனா நிறம், காகிதம், அலங்காரம்.", "கிரந்த எழுத்துகள் உட்பட ஏற்கப்பட்ட கையெழுத்து வடிவங்கள் பிழை அல்ல."],
+    pointsEn: ["Spelling, meaning, pen colour, paper and decoration.", "Accepted handwritten variants, including Grantha letters, are not errors."],
+  },
+];
+
 /** Tamil form wording is a first draft; a native Tamil reviewer must check it before the pilot. */
 const TA: FormRubric = {
   instructions: ta.INSTRUCTIONS,
-  // The rubric's rater instructions, shortened and grouped so the dialog reads at a glance.
-  helpGroups: [
-    {
-      code: "1",
-      color: "#64748b",
-      title: "தொடங்கும் முன்",
-      points: ["முதலில் முழுப் பந்தியையும் பாருங்கள்; பின்னர் பெரிதாக்கலாம்.", "உங்கள் சொந்தக் கையெழுத்தை மதிப்பிட வேண்டாம்."],
-      pointsEn: ["Look at the whole paragraph first, then zoom.", "Do not rate your own writing."],
-    },
-    {
-      code: "H1",
-      color: "#4f46e5",
-      title: "முழுமையான அழகு",
-      points: ["முதல் பார்வையில் தோன்றுவதை வைத்து H1 வழங்குங்கள்.", "பின்னர் அதை மாற்ற வேண்டாம்."],
-      pointsEn: ["Give H1 from your first impression.", "Do not change it afterwards."],
-    },
-    {
-      code: "L1",
-      color: "#059669",
-      title: "வாசிப்புத் தெளிவு",
-      points: ["அழகைப் பொருட்படுத்தாமல், எவ்வளவு எளிதாக வாசிக்க முடிகிறது என்பதை மட்டும் மதிப்பிடுங்கள்."],
-      pointsEn: ["Rate only how easy it is to read, not how beautiful it is."],
-    },
-    {
-      code: "C1–C8",
-      color: "#d97706",
-      title: "எட்டு அளவுகோல்கள்",
-      points: [
-        "ஒவ்வொன்றையும் தனித்தனியாக, முழுப் பந்தியையும் வைத்து மதிப்பிடுங்கள்.",
-        "ஒரு சிறிய குறைக்காக 1 அல்லது 2 வழங்க வேண்டாம்.",
-        "9–10 வழங்க முழுமை தேவையில்லை.",
-      ],
-      pointsEn: [
-        "Rate each one separately, across the whole paragraph.",
-        "One small defect is not a reason for 1 or 2.",
-        "9–10 does not require perfection.",
-      ],
-    },
-    {
-      code: "✕",
-      color: "#dc2626",
-      title: "கவனிக்க வேண்டாதவை",
-      points: ["எழுத்துப்பிழை, பொருள், பேனா நிறம், காகிதம், அலங்காரம்.", "கிரந்த எழுத்துகள் உட்பட ஏற்கப்பட்ட கையெழுத்து வடிவங்கள் பிழை அல்ல."],
-      pointsEn: ["Spelling, meaning, pen colour, paper and decoration.", "Accepted handwritten variants, including Grantha letters, are not errors."],
-    },
-  ],
+  helpGroups: TA_HELP.map(({ code, color, title, points }) => ({ code, color, title, points })),
   bandHowto: "முதலில் பொருந்தும் பிரிவைத் தேர்ந்தெடுங்கள்; பின்னர் அதில் குறைந்த அல்லது உயர்ந்த எண்ணைத் தேர்ந்தெடுங்கள்.",
   bandNames: ta.BAND_NAMES,
   overall: ta.OVERALL,
@@ -269,8 +273,7 @@ const TA: FormRubric = {
     finish: "முடிக்கவும்",
     next: "அடுத்து",
     helpTitle: "மதிப்பிடுவதற்கு முன் படிக்கவும்",
-    helpEnglish: "English",
-    helpLocal: "தமிழ்",
+    switchLang: "English",
     start: "சரி, தொடங்குவோம்",
     calTitle: "அளவுத்திருத்தக் குறிப்பு",
     calBody: (you, ref) => (
@@ -305,4 +308,101 @@ const TA: FormRubric = {
   },
 };
 
+/** The Tamil form in English, for raters who switch language. Codes, colours and stored values are the same as TA. */
+const TA_EN: FormRubric = {
+  ...TA,
+  helpGroups: TA_HELP.map(({ code, color, titleEn, pointsEn }) => ({ code, color, title: titleEn, points: pointsEn })),
+  bandHowto: "First choose the band whose description fits the paragraph, then choose its lower or higher number.",
+  bandNames: ta.BAND_NAMES_EN,
+  overall: {
+    ...ta.OVERALL,
+    label: "Overall handwriting aesthetics",
+    question: "How visually pleasing is this paragraph as a whole?",
+    help: "Record H1 first and do not change it afterwards.",
+    bands: ta.OVERALL_BANDS_EN,
+  },
+  legibility: {
+    ...ta.LEGIBILITY,
+    label: "Legibility",
+    question: "How easily can you read the handwriting without using the reference passage?",
+    help: "Rate it separately from aesthetics.",
+    bands: ta.LEGIBILITY_BANDS_EN,
+  },
+  criteriaIntro: "Give one score for each criterion.",
+  // For C2–C8 the rubric's look-for examples are already in English (`lookFor`), so they follow the description.
+  criterionText: (key) => {
+    const c = ta.criterionText(key);
+    return c && { code: c.code, label: c.labelEn, lookFor: key === "c1" ? c.lookForEn : `${c.lookForEn} ${c.lookFor}`, bands: c.bandsEn };
+  },
+  commentQ: "Is there anything else that affects how this handwriting looks?",
+  issueTags: ta.ISSUE_TAGS_EN,
+  flags: ta.FLAGS_EN,
+  severity: ta.SEVERITY_EN,
+  ui: {
+    calibration: "Calibration paragraph",
+    block: (n) => `Text ${n}`,
+    paragraph: (at, of) => `Paragraph ${at} / ${of}`,
+    help: "Instructions",
+    blockChanged: (
+      <>
+        From here on it is <b>a different text (text 2)</b>. You will see the same text written by different people.
+      </>
+    ),
+    draw: "Mark a weak area",
+    showBoxes: "Show boxes",
+    hideBoxes: "Hide boxes",
+    opacity: "Box visibility",
+    drawPrompt: "About what? Choose, then draw a box around the weak area on the scan.",
+    hintDraw: "Choose Move to drag the scan. Zoom with the + / − buttons or two fingers.",
+    hintMove: "Optional. Zoom with the + / − buttons or two fingers; you can drag the scan.",
+    removedAll: "All boxes removed",
+    removedOne: "Box removed",
+    missing: "Not answered yet: ",
+    weakTitle: "Weak areas",
+    weakHint: "— tap one to choose details",
+    clearAll: "Clear all",
+    severity: "Severity",
+    clearBox: "Clear box",
+    optional: "(optional)",
+    finish: "Finish",
+    next: "Next",
+    helpTitle: "Read before rating",
+    switchLang: "தமிழ்",
+    start: "OK, let’s start",
+    calTitle: "Calibration reference",
+    calBody: (you, ref) => (
+      <>
+        You gave <b>{you.overall}</b> for overall beauty (H1) and <b>{you.legibility}</b> for legibility (L1). The research team&rsquo;s
+        reference scores: H1 <b>{ref.overall}</b>, L1 <b>{ref.legibility}</b>.
+      </>
+    ),
+    continue: "Continue",
+    lookFor: "Look for",
+    details: "Details",
+    moreFlags: "+ Other marks (illegible letter, strike-out, copying error…)",
+    show: "Show",
+    hide: "Hide",
+    layers: "Layers",
+    layersOpen: "Show layers",
+    layersOpenTitle: "Show layers",
+    layersFold: "Fold layers",
+    layersFoldTitle: "Fold (make the scan bigger)",
+    noBoxes: "no boxes",
+    allShow: "Show all boxes",
+    allHide: "Hide all boxes",
+    layerShow: "Show this layer",
+    layerHide: "Hide this layer",
+    noLayers: "No boxes yet. The boxes you draw appear here as layers.",
+    whatAbout: "About what?",
+    changeCriterion: "Change criterion",
+    issue: "Issue",
+    part: "Letter part (optional)",
+    note: "Note (optional)",
+    ok: "OK",
+  },
+};
+
 export const formRubric = (script: Script): FormRubric => (script === "ta" ? TA : SI);
+
+/** The form in English, for scripts that have one (Tamil); null hides the language switch. */
+export const formRubricEnglish = (script: Script): FormRubric | null => (script === "ta" ? TA_EN : null);
