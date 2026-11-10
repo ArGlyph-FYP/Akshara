@@ -118,7 +118,7 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     })),
   );
 
-  // The criteria are the same for both scripts (A1–A8), so they aren't filtered by script.
+  // Criteria of both scripts (Sinhala a1…a8, a6a…a6c; Tamil c1…c8); their IDs never clash.
   const criteria = [...data.criteria]
     .sort((a, b) => a.script.localeCompare(b.script) || a.rubricVersion - b.rubricVersion || a.order - b.order);
   const criterionById = new Map(criteria.map((c) => [c.id, c]));
@@ -144,6 +144,10 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       "legibility",
       "decoration",
       "alterations",
+      "copy_error",
+      "unscorable",
+      "unscorable_reason",
+      "not_applicable",
       "rubric_version",
       "n_regions",
       "duration_ms",
@@ -166,6 +170,10 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       legibility: r.legibility,
       decoration: r.decoration ?? "",
       alterations: r.alterations ?? "",
+      copy_error: r.copyError ? 1 : 0,
+      unscorable: r.unscorable ? 1 : 0,
+      unscorable_reason: r.unscorableReason ?? "",
+      not_applicable: (r.notApplicable ?? []).join(";"),
       rubric_version: r.rubricVersion,
       n_regions: r.regions.length,
       duration_ms: r.durationMs,
@@ -258,6 +266,8 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       description: c.description,
       level: c.level,
       scale: [c.scaleMin, c.scaleMax],
+      // Choice criteria (Sinhala v12): option names from the lowest stored value up.
+      levels: c.levels ?? null,
       active: c.active,
     })),
     null,

@@ -96,7 +96,7 @@ export function ResponsesDialog({
                     <span className="truncate font-medium">{readerName(i.raterId)}</span>
                     {i.kind !== "normal" && <Badge variant="outline">{i.kind}</Badge>}
                     <Badge variant="secondary" className="ml-auto tabular-nums" title="Overall score">
-                      {r.overall}
+                      {r.overall ?? "unscorable"}
                     </Badge>
                     {r.legibility !== null && (
                       <Badge variant="outline" className="tabular-nums" title="Legibility">
@@ -123,10 +123,24 @@ export function ResponsesDialog({
                         .map((c) => (
                           <li key={c.id} className="flex justify-between gap-2">
                             <span className="truncate text-muted-foreground">{c.labelEn}</span>
-                            <span className="tabular-nums">{r.criterionScores[c.id]}</span>
+                            <span className="tabular-nums">
+                              {c.levels?.[r.criterionScores[c.id] - c.scaleMin] ?? r.criterionScores[c.id]}
+                            </span>
                           </li>
                         ))}
                     </ul>
+                  )}
+                  {(r.unscorable || r.copyError || r.notApplicable.length > 0) && (
+                    <p className="text-xs text-muted-foreground">
+                      {[
+                        r.unscorable && `Unscorable: ${r.unscorableReason}`,
+                        r.copyError && "Copy error",
+                        r.notApplicable.length > 0 &&
+                          `N/A: ${r.notApplicable.map((id) => criteria.find((c) => c.id === id)?.labelEn.split(" ")[0] ?? id).join(", ")}`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   )}
                   {(r.decoration || r.alterations) && (
                     <p className="text-xs text-muted-foreground">

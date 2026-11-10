@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { formRubric, formRubricEnglish, type FormRubric, type HelpGroup, type Hint } from "@/lib/rubric/form";
-import { ALTERATIONS, BAND_RANGES, DECORATIONS, bandIndex, type Alterations, type Bands, type Decoration } from "@/lib/rubric/si";
+import { formRubric, formRubricEnglish, type ChoiceRubric, type FormRubric, type HelpGroup, type Hint } from "@/lib/rubric/form";
+import { BAND_RANGES, bandIndex, type Bands, type Option } from "@/lib/rubric/si";
 import type { Region, Scale, Script } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { submitRating } from "../actions";
@@ -41,7 +41,8 @@ const RubricCtx = createContext<FormRubric>(formRubric("si"));
 
 /**
  * Main study, one page per paragraph: optional weak-region boxes (criterion, issue tag, severity) and a comment, with
- * Sinhala (Rubric v1): O, decoration and alterations flags, A1–A8, L; or Tamil (v0.3): H1, L1, C1–C8.
+ * Sinhala (Rubric v12): O, L (1–10), A1–A5, A7, A8 (five levels), A6a–A6c (four levels), copy_error / unscorable;
+ * or Tamil (v0.3): H1, L1, C1–C8 (1–10).
  */
 export function MainRatingForm(props: {
   script: Script;
@@ -83,8 +84,11 @@ export function MainRatingForm(props: {
   const [overall, setOverall] = useState<number | null>(null);
   const [legibility, setLegibility] = useState<number | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
-  const [decoration, setDecoration] = useState<Decoration | null>(null);
-  const [alterations, setAlterations] = useState<Alterations | null>(null);
+  /** Sinhala v12: criteria answered "not applicable", copy error, and an unscorable image with its reason. */
+  const [na, setNa] = useState<Set<string>>(new Set());
+  const [copyError, setCopyError] = useState(false);
+  const [unscorable, setUnscorable] = useState(false);
+  const [unscorableReason, setUnscorableReason] = useState("");
   const [regions, setRegions] = useState<Mark[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [drawMode, setDrawMode] = useState(false);
@@ -132,14 +136,37 @@ export function MainRatingForm(props: {
   const next = useNextItem(props.next);
 
   const missingL = legibility === null ? [{ id: "q-L", label: R.legibility.code }] : [];
-  const missing: { id: string; label: string }[] = [
-    ...(overall === null ? [{ id: "q-O", label: R.overall.code }] : []),
-    ...(R.legibilityFirst ? missingL : []),
-    ...(R.extras && decoration === null ? [{ id: "q-D", label: R.extras.decoration.code }] : []),
-    ...(R.extras && alterations === null ? [{ id: "q-alt", label: R.extras.alterations.label }] : []),
-    ...criteria.filter((c) => scores[c.id] === undefined).map((c) => ({ id: `q-${c.id}`, label: code(c.id) })),
-    ...(R.legibilityFirst ? [] : missingL),
-  ];
+  // Unscorable: only the reason is needed and the rest stays blank.
+  const missing: { id: string; label: string }[] = unscorable
+    ? unscorableReason.trim()
+      ? []
+      : [{ id: "q-unscorable", label: `${R.choices?.unscorable.label} — ${R.choices?.unscorable.reason}` }]
+    : [
+        ...(overall === null ? [{ id: "q-O", label: R.overall.code }] : []),
+        ...(R.legibilityFirst ? missingL : []),
+        ...criteria.filter((c) => scores[c.id] === undefined && !na.has(c.id)).map((c) => ({ id: `q-${c.id}`, label: code(c.id) })),
+        ...(R.legibilityFirst ? [] : missingL),
+      ];
+
+  const setAnswer = (id: string, v: number) => {
+    setScores((s) => ({ ...s, [id]: v }));
+    setNa((n) => {
+      if (!n.has(id)) return n;
+      const m = new Set(n);
+      m.delete(id);
+      return m;
+    });
+  };
+  const toggleNa = (id: string) => {
+    const on = !na.has(id);
+    setNa((n) => {
+      const m = new Set(n);
+      if (on) m.add(id);
+      else m.delete(id);
+      return m;
+    });
+    if (on) setScores(({ [id]: _, ...rest }) => (void _, rest));
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -218,12 +245,14 @@ export function MainRatingForm(props: {
     setError(null);
     const res = await submitRating({
       assignmentId: props.assignmentId,
-      overall: overall!,
-      legibility: legibility!,
-      criterionScores: scores,
-      decoration,
-      alterations,
-      regions: regions.map(toRegion),
+      overall: unscorable ? null : overall,
+      legibility: unscorable ? null : legibility,
+      criterionScores: unscorable ? {} : scores,
+      notApplicable: unscorable ? [] : [...na],
+      copyError,
+      unscorable,
+      unscorableReason: unscorable ? unscorableReason : "",
+      regions: unscorable ? [] : regions.map(toRegion),
       comment,
       durationMs: Date.now() - started.current,
     });
@@ -475,7 +504,9 @@ export function MainRatingForm(props: {
           <p className="rounded-xl border bg-muted/60 p-3 text-sm whitespace-pre-line">{props.instructions}</p>
         )}
 
-        <section className="space-y-4 rounded-xl border bg-card p-4">
+        {unscorable && R.choices && <p className="rounded-xl border border-primary/30 bg-brand-soft p-3 text-sm">{R.choices.unscorable.question}</p>}
+
+        <section inert={unscorable} className={cn("space-y-4 rounded-xl border bg-card p-4", unscorable && "opacity-40")}>
           <ScoreQuestion
             id="q-O"
             code={R.overall.code}
@@ -488,35 +519,45 @@ export function MainRatingForm(props: {
             onChange={setOverall}
             low={R.overall.low}
             high={R.overall.high}
+            note={R.choices?.withinBand}
           />
           {R.legibilityFirst && legibilityQuestion}
-          {R.extras && (
-            <>
-              <Choice
-                id="q-D"
-                label={`${R.extras.decoration.label} (${R.extras.decoration.code})`}
-                question={R.extras.decoration.question}
-                options={DECORATIONS.map((v) => ({ value: v, label: R.extras!.decoration.options[v] }))}
-                value={decoration}
-                onChange={setDecoration}
-              />
-              <Choice
-                id="q-alt"
-                label={R.extras.alterations.label}
-                question={R.extras.alterations.question}
-                options={ALTERATIONS.map((v) => ({ value: v, label: R.extras!.alterations.options[v] }))}
-                value={alterations}
-                onChange={setAlterations}
-              />
-            </>
-          )}
         </section>
 
         {criteria.length > 0 && (
-          <section className="space-y-4 rounded-xl border bg-card p-4">
+          <section inert={unscorable} className={cn("space-y-4 rounded-xl border bg-card p-4", unscorable && "opacity-40")}>
             <p className="text-xs text-muted-foreground">{R.criteriaIntro}</p>
             {criteria.map((c) => {
               const text = R.criterionText(c.key);
+              const choice = R.choices?.criterion(c.key);
+              if (R.choices && choice) {
+                const q = (
+                  <LevelQuestion
+                    key={c.id}
+                    id={`q-${c.id}`}
+                    code={choice.code}
+                    label={choice.group ? choice.question : choice.label}
+                    question={choice.group ? "" : choice.question}
+                    lookFor={choice.lookFor}
+                    notJudged={choice.notJudged}
+                    options={R.choices.options(c.key)}
+                    value={scores[c.id] ?? null}
+                    onChange={(v) => setAnswer(c.id, v)}
+                    na={na.has(c.id)}
+                    onNa={() => toggleNa(c.id)}
+                    sub={!!choice.group}
+                  />
+                );
+                // A6a opens the A6 block: heading and shared guidance, then the three spacing questions.
+                if (choice.key !== "a6a") return q;
+                const g = R.choices.group;
+                return (
+                  <div key="a6" className="space-y-3">
+                    <GroupHeading code={g.code} label={g.label} question={g.question} help={g.lookFor} />
+                    {q}
+                  </div>
+                );
+              }
               return (
                 <ScoreQuestion
                   key={c.id}
@@ -537,6 +578,25 @@ export function MainRatingForm(props: {
         )}
 
         {!R.legibilityFirst && <section className="rounded-xl border bg-card p-4">{legibilityQuestion}</section>}
+
+        {R.choices && (
+          <section className="space-y-3 rounded-xl border bg-card p-4">
+            <Check2 id="q-copy" checked={copyError} onChange={setCopyError} label={R.choices.copyError.label} hint={R.choices.copyError.question} />
+            <div id="q-unscorable" className="scroll-mt-24 space-y-2">
+              <Check2 checked={unscorable} onChange={setUnscorable} label={R.choices.unscorable.label} hint={R.choices.unscorable.question} />
+              {unscorable && (
+                <Input
+                  autoFocus
+                  className="h-9 text-sm"
+                  placeholder={`${R.choices.unscorable.reason} ${R.choices.required}`}
+                  value={unscorableReason}
+                  onChange={(e) => setUnscorableReason(e.target.value)}
+                  maxLength={500}
+                />
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="space-y-3 rounded-xl border bg-card p-4">
           <div>
@@ -583,6 +643,7 @@ export function MainRatingForm(props: {
               ))}
             </div>
           </div>
+          {R.choices && <ProblemTable choices={R.choices} />}
           <DialogFooter>
             <Button className="w-full" onClick={() => setHelp(false)}>
               {ui.start}
@@ -596,7 +657,7 @@ export function MainRatingForm(props: {
           <DialogHeader>
             <DialogTitle>{ui.calTitle}</DialogTitle>
             <DialogDescription>
-              {ui.calBody({ overall, legibility }, { overall: feedback?.overall ?? "–", legibility: feedback?.legibility ?? "–" })}
+              {ui.calBody(unscorable ? { overall: "–", legibility: "–" } : { overall, legibility }, { overall: feedback?.overall ?? "–", legibility: feedback?.legibility ?? "–" })}
             </DialogDescription>
           </DialogHeader>
           {feedback?.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
@@ -626,6 +687,8 @@ function ScoreQuestion(props: {
   onChange: (v: number) => void;
   low?: string;
   high?: string;
+  /** Shown under the bands in the help (e.g. how to pick inside a band). */
+  note?: string;
 }) {
   const { bandNames, ui } = useContext(RubricCtx);
   const [open, setOpen] = useState(false);
@@ -661,6 +724,7 @@ function ScoreQuestion(props: {
               ))}
             </dl>
           )}
+          {props.note && <p className="text-muted-foreground">{props.note}</p>}
         </div>
       )}
       <ScoreButtons compact scale={props.scale} value={props.value} onChange={props.onChange} lowLabel={props.low} highLabel={props.high} />
@@ -745,37 +809,155 @@ function HintChips({ hints }: { hints: Hint[] }) {
   );
 }
 
-/** A small single-choice question shown as buttons. */
-function Choice<T extends string>(props: {
+/**
+ * Sinhala v12: a criterion answered by picking one described option (five levels, or four for A6a–A6c), with an
+ * expandable "what to judge" and option list, the chosen option's description, and a "not applicable" choice.
+ */
+function LevelQuestion(props: {
   id: string;
+  code: string;
   label: string;
   question: string;
-  options: { value: T; label: string }[];
-  value: T | null;
-  onChange: (v: T) => void;
+  lookFor: string;
+  notJudged: string;
+  options: Option[];
+  value: number | null;
+  onChange: (v: number) => void;
+  na: boolean;
+  onNa: () => void;
+  /** One of the A6 sub-questions (indented under the A6 heading). */
+  sub?: boolean;
 }) {
+  const { ui, choices } = useContext(RubricCtx);
+  const [open, setOpen] = useState(false);
+  const chosen = props.options.find((o) => o.value === props.value);
   return (
-    <div id={props.id} className="scroll-mt-24">
-      <p className="text-sm font-semibold">{props.label}</p>
-      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{props.question}</p>
-      <div className="mt-1.5 flex flex-wrap gap-1" role="radiogroup">
+    <div id={props.id} className={cn("scroll-mt-24", props.sub && "border-l-2 pl-3")}>
+      <div className="flex items-baseline gap-1.5 text-sm">
+        <span className="font-mono text-xs text-muted-foreground">{props.code}</span>
+        <span className="font-semibold">{props.label}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-xs text-primary"
+          aria-expanded={open}
+        >
+          {ui.lookFor} <ChevronDown className={cn("size-3.5 transition", open && "rotate-180")} />
+        </button>
+      </div>
+      {props.question && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{props.question}</p>}
+      {open && (
+        <div className="mt-1.5 space-y-2 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed">
+          <p>{props.lookFor}</p>
+          {props.notJudged && <p className="text-muted-foreground">{props.notJudged}</p>}
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+            {props.options.map((o) => (
+              <div key={o.value} className="contents">
+                <dt className="font-medium whitespace-nowrap">{o.name}</dt>
+                <dd>{o.description}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      <div className="mt-1.5 flex flex-wrap gap-1" role="radiogroup" aria-label={`${props.code} ${props.label}`}>
         {props.options.map((o) => (
           <button
             key={o.value}
             type="button"
             role="radio"
-            aria-checked={props.value === o.value}
+            aria-checked={props.value === o.value && !props.na}
+            title={o.description}
             onClick={() => props.onChange(o.value)}
             className={cn(
               "rounded-md border px-2.5 py-1.5 text-xs font-medium transition",
-              props.value === o.value ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-primary/50",
+              props.value === o.value && !props.na ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-primary/50",
             )}
           >
-            {o.label}
+            {o.name}
           </button>
         ))}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={props.na}
+          onClick={props.onNa}
+          className={cn(
+            "rounded-md border border-dashed px-2.5 py-1.5 text-xs transition",
+            props.na ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:border-primary/50",
+          )}
+        >
+          {choices?.na}
+        </button>
       </div>
+      {chosen && !props.na && <p className="mt-1 text-xs text-primary">{chosen.description}</p>}
     </div>
+  );
+}
+
+/** Heading for a block of sub-questions (A6), with its shared guidance behind the look-for toggle. */
+function GroupHeading(props: { code: string; label: string; question: string; help: string }) {
+  const { ui } = useContext(RubricCtx);
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <div className="flex items-baseline gap-1.5 text-sm">
+        <span className="font-mono text-xs text-muted-foreground">{props.code}</span>
+        <span className="font-semibold">{props.label}</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-xs text-primary"
+          aria-expanded={open}
+        >
+          {ui.lookFor} <ChevronDown className={cn("size-3.5 transition", open && "rotate-180")} />
+        </button>
+      </div>
+      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{props.question}</p>
+      {open && <p className="mt-1.5 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed">{props.help}</p>}
+    </div>
+  );
+}
+
+/** A tick box with a bold label and a one-line hint. */
+function Check2(props: { id?: string; checked: boolean; onChange: (v: boolean) => void; label: string; hint: string }) {
+  return (
+    <label id={props.id} className="flex scroll-mt-24 cursor-pointer items-start gap-2.5 text-sm">
+      <input
+        type="checkbox"
+        className="mt-0.5 size-4 shrink-0 accent-primary"
+        checked={props.checked}
+        onChange={(e) => props.onChange(e.target.checked)}
+      />
+      <span>
+        <span className="font-semibold">{props.label}</span>
+        <span className="block text-xs leading-relaxed text-muted-foreground">{props.hint}</span>
+      </span>
+    </label>
+  );
+}
+
+/** Help dialog (Sinhala v12): which criterion a problem belongs to, and the quick tie-breaks. */
+function ProblemTable({ choices }: { choices: ChoiceRubric }) {
+  return (
+    <details className="rounded-lg border p-3 text-sm">
+      <summary className="cursor-pointer font-medium">{choices.problemTitle}</summary>
+      <p className="mt-2 text-xs text-muted-foreground">{choices.problemNote}</p>
+      <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 text-xs leading-relaxed">
+        {choices.problemMap.map((p) => (
+          <div key={p.problem} className="contents">
+            <dd>{p.problem}</dd>
+            <dt className="font-mono font-semibold">{p.code}</dt>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-xs font-medium">{choices.tieBreaksTitle}</p>
+      <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-relaxed">
+        {choices.tieBreaks.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

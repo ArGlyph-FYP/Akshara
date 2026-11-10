@@ -4,7 +4,7 @@ import { FieldValue, type DocumentReference } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/auth";
 import { newId, newPublicToken } from "@/lib/codes";
-import { RUBRIC_VERSION } from "@/lib/rubric/criteria";
+import { rubricVersionFor } from "@/lib/rubric/criteria";
 import { col, db, getDataset, getStudy, listAssignments, listDatasetSamples, listRatings } from "@/lib/data";
 import { datasetOf, DEFAULT_SCALES, MAIN_DEFAULTS, MAIN_SCALE, SCRIPT_LABEL, type Script, type Study, type StudyType, type UserDoc } from "@/lib/types";
 import type { SurveyStatus } from "./status";
@@ -82,8 +82,8 @@ export async function startStudy(input: {
     const samples = await usableSamples(input.script, dataset.id, input.sampleIds ?? []);
     if (samples.length === 0) throw new Error("Pick at least one sample (withdrawn or rejected scans can't be used)");
 
-    // Main study: the fixed Rubric v1 criteria (A1–A8).
-    const rubricVersion = input.type === "rubric" ? RUBRIC_VERSION : null;
+    // Main study: the fixed criteria in code (Sinhala Rubric v12, Tamil rubric v0.3).
+    const rubricVersion = input.type === "rubric" ? rubricVersionFor(input.script) : null;
     const id = newId();
     const main = input.type === "rubric";
     const doc: Omit<Study, "id"> = {

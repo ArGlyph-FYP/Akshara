@@ -47,10 +47,13 @@ export async function GET(req: Request) {
     if (!study) return new Response("Study not found", { status: 404 });
     const samples = new Map(data.samples.map((x) => [x.id, x]));
     const main = study.type === "rubric";
-    // Main study: one column per criterion, named by its key (a1…a8).
-    const crit = [...data.criteria].sort((a, b) => a.order - b.order);
-    const rows = data.ratings
-      .filter((r) => r.studyId === study.id)
+    // Main study: one column per criterion of the study's script, named by its key (a1…a8, a6a…a6c / c1…c8).
+    const crit = data.criteria.filter((c) => c.script === study.script).sort((a, b) => a.order - b.order);
+    const studyRatings = data.ratings.filter((r) => r.studyId === study.id);
+    // Older Sinhala ratings (Rubric v1) had decoration and crossings-out answers; only show those columns if any exist.
+    const oldFlags = studyRatings.some((r) => r.decoration || r.alterations);
+    const v12 = main && study.script === "si";
+    const rows = studyRatings
       .sort((a, b) => a.submittedAt - b.submittedAt)
       .map((r) => {
         const smp = samples.get(r.sampleId);
@@ -65,11 +68,15 @@ export async function GET(req: Request) {
           batch: r.batch ?? "",
           block: main && r.kind !== "anchor" ? (smp?.part === 2 ? 2 : 1) : "",
           position: r.position ?? "",
-          score: r.overall,
+          score: r.overall ?? "",
           legibility: r.legibility ?? "",
           decoration: r.decoration ?? "",
           alterations: r.alterations ?? "",
-          ...Object.fromEntries(crit.map((c) => [c.key, r.criterionScores[c.id] ?? ""])),
+          ...Object.fromEntries(crit.map((c) => [c.key, r.criterionScores[c.id] ?? (r.notApplicable?.includes(c.id) ? "NA" : "")])),
+          copy_error: r.copyError ? 1 : 0,
+          unscorable: r.unscorable ? 1 : 0,
+          unscorable_reason: r.unscorableReason ?? "",
+          not_applicable: (r.notApplicable ?? []).join(";"),
           comment: r.comment,
           liked_text: r.likedText,
           disliked_text: r.dislikedText,
@@ -99,7 +106,12 @@ export async function GET(req: Request) {
         };
       });
     const cols = main
-      ? ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "batch", "block", "position", "score", "decoration", "alterations", ...crit.map((c) => c.key), "legibility", "comment", "n_regions", "regions_json", "duration_ms", "submitted_at"]
+      ? [
+          "participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "batch", "block", "position",
+          "score", "legibility", ...(oldFlags ? ["decoration", "alterations"] : []), ...crit.map((c) => c.key),
+          ...(v12 ? ["copy_error", "unscorable", "unscorable_reason", "not_applicable"] : []),
+          "comment", "n_regions", "regions_json", "duration_ms", "submitted_at",
+        ]
       : ["participant_code", "page_no", "part", "sample_id", "writer_id", "rater", "kind", "score", "legibility", "liked_text", "disliked_text", "n_regions", "marks_json", "duration_ms", "submitted_at"];
     const slug = study.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "study";
     return new Response(toCsv(cols, rows), {

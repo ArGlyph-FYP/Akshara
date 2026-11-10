@@ -124,7 +124,8 @@ export interface SampleDetail {
     studyType: string;
     kind: string;
     status: "pending" | "done" | "skipped";
-    overall?: number;
+    /** Null when the rater marked the paragraph unscorable. */
+    overall?: number | null;
     legibility?: number | null;
     liked?: string;
     disliked?: string;

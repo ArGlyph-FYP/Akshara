@@ -21,7 +21,8 @@ export interface ReaderInfo {
 }
 
 export interface ResponseInfo {
-  overall: number;
+  /** Null when the rater marked the paragraph unscorable (Sinhala v12). */
+  overall: number | null;
   legibility: number | null;
   liked: string;
   disliked: string;
@@ -30,6 +31,10 @@ export interface ResponseInfo {
   alterations: string | null;
   regions: Region[];
   criterionScores: Record<string, number>;
+  notApplicable: string[];
+  copyError: boolean;
+  unscorable: boolean;
+  unscorableReason: string;
   durationMs: number;
   submittedAt: number;
 }
@@ -171,6 +176,10 @@ export async function loadStudyPage(script: Script, dataset: Dataset, type: Stud
               alterations: r.alterations ?? null,
               regions: r.regions,
               criterionScores: r.criterionScores,
+              notApplicable: r.notApplicable ?? [],
+              copyError: r.copyError ?? false,
+              unscorable: r.unscorable ?? false,
+              unscorableReason: r.unscorableReason ?? "",
               durationMs: r.durationMs,
               submittedAt: r.submittedAt,
             }
