@@ -327,7 +327,7 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                             <span className="truncate font-medium">{it.rater}</span>
                             {it.status === "done" ? (
                               <Badge variant="secondary" className="bg-success/10 text-success">
-                                {it.overall}
+                                {it.overall ?? "unscorable"}
                                 {it.legibility != null && ` · L${it.legibility}`}
                               </Badge>
                             ) : (

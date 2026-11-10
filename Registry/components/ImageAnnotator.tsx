@@ -13,7 +13,7 @@ export interface Box {
 }
 
 // One colour per criterion (A1–A8, in order), shared by the rating page and the admin responses view.
-const PALETTE = ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777", "#0d9488"];
+const PALETTE = ["#2563eb", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777", "#0d9488", "#dc2626", "#4f46e5"];
 export const colorFor = (i: number) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
 
 /** Perception marks: solid blue for parts that look good, dashed near-black for parts that could be better. */

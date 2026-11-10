@@ -112,6 +112,8 @@ export interface Criterion {
   level: Level;
   scaleMin: number;
   scaleMax: number;
+  /** Names of the answer options from scaleMin up, for criteria that are choices rather than scores (English). */
+  levels?: string[];
   active: boolean;
   order: number;
 }
@@ -126,7 +128,7 @@ export const DEFAULT_SCALES = {
   legibility: { min: 1, max: 5 } as Scale,
 };
 
-/** Main study (Rubric v1): O, L and every criterion on 1–10. */
+/** Main study: O and L on 1–10 (Tamil criteria too; Sinhala v12 criteria have their own scales). */
 export const MAIN_SCALE: Scale = { min: 1, max: 10 };
 
 /** Main study defaults: samples per form, and ratings per sample (aim, and the point a sample stops going out). */
@@ -217,16 +219,22 @@ export interface Rating {
   sampleId: string;
   script: Script;
   kind: AssignmentKind;
-  overall: number;
+  /** Null only when the rater marked the paragraph unscorable (Sinhala v12). */
+  overall: number | null;
   /** Rubric studies only. */
   legibility: number | null;
   criterionScores: Record<string, number>;
+  /** Sinhala v12: criteria answered "not applicable" (keys), a copying error, or an unscorable image and why. */
+  notApplicable?: string[];
+  copyError?: boolean;
+  unscorable?: boolean;
+  unscorableReason?: string;
   regions: Region[];
   /** Perception studies only. */
   likedText: string;
   dislikedText: string;
   comment: string;
-  /** Main study: decoration flag (D) and crossings-out / overwriting. */
+  /** Sinhala Rubric v1 only (dropped in v12): decoration flag (D) and crossings-out / overwriting. */
   decoration?: "none" | "present_ok" | "present_hurts" | null;
   alterations?: "none" | "1-2" | "3+" | null;
   /** Main study: the reader's form number and the item's place in their queue. */

@@ -9,7 +9,7 @@
 // Real samples are only read and listed in the test survey; --remove never deletes them.
 import type { DocumentReference } from "firebase-admin/firestore";
 import { compareSamples, formatCode, newId, newPublicToken, newWriterId } from "../lib/codes";
-import { RUBRIC_VERSION } from "../lib/rubric/criteria";
+import { rubricVersionFor } from "../lib/rubric/criteria";
 import { MAIN_DEFAULTS, MAIN_SCALE, surveyPath, type Participant, type Sample, type Study } from "../lib/types";
 import { arg, auth, bucket, db, target } from "./admin-app";
 
@@ -87,7 +87,7 @@ async function add(yes: boolean, total: number) {
   const study: Omit<Study, "id"> & { testData: true } = {
     script: "si", type: "rubric", title: "TEST – Sinhala main study (copied samples)",
     instructions: "", sampleIds: [...real.map((s) => s.id), ...newIds], open: true,
-    overallScale: MAIN_SCALE, legibilityScale: MAIN_SCALE, rubricVersion: RUBRIC_VERSION,
+    overallScale: MAIN_SCALE, legibilityScale: MAIN_SCALE, rubricVersion: rubricVersionFor("si"),
     publicToken: newPublicToken(), publicOpen: true, perReader: MAIN_DEFAULTS.formSize, repeatPct: 10,
     targetPerSample: MAIN_DEFAULTS.targetPerSample, maxPerSample: MAIN_DEFAULTS.maxPerSample,
     createdAt: now, testData: true,

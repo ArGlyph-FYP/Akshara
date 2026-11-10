@@ -309,7 +309,8 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
           <div className="divide-y rounded-xl border bg-card">
             {data.samples.map((s) => {
               const its = bySample(s.id);
-              const avg = its.length ? its.reduce((a, i) => a + i.rating!.overall, 0) / its.length : null;
+              const scored = its.map((i) => i.rating!.overall).filter((v): v is number => v !== null);
+              const avg = scored.length ? scored.reduce((a, v) => a + v, 0) / scored.length : null;
               return (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <Thumb id={s.id} className="h-12 w-9 shrink-0 rounded" contain={!!s.part} />
@@ -537,12 +538,12 @@ function ResponsesTable({
                   {i.kind !== "normal" && <span className="ml-1 font-sans text-xs text-muted-foreground">({i.kind})</span>}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap">{name(i.raterId)}</td>
-                <td className="px-3 py-2 tabular-nums">{r.overall}</td>
+                <td className="px-3 py-2 tabular-nums">{r.overall ?? <span className="text-xs text-muted-foreground">unscorable</span>}</td>
                 {main ? (
                   <>
                     <td className="px-3 py-2 tabular-nums">{r.legibility ?? "–"}</td>
                     <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">
-                      {Object.keys(r.criterionScores).length} / {criteriaCount}
+                      {r.unscorable ? "–" : `${Object.keys(r.criterionScores).length + r.notApplicable.length} / ${criteriaCount}`}
                     </td>
                     <td className="px-3 py-2 tabular-nums">{r.regions.length}</td>
                     <td className="max-w-xs px-3 py-2 text-muted-foreground">{r.comment}</td>

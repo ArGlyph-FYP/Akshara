@@ -19,6 +19,26 @@ export interface Hint {
   text: string;
 }
 
+/**
+ * Sinhala v12: criteria answered by picking one described option (five levels, or four for A6a–A6c) instead of 1–10,
+ * with "not applicable", copy_error / unscorable boxes and the problem-to-criterion table in the help.
+ */
+export interface ChoiceRubric {
+  criterion: (key: string) => si.SiCriterion | null;
+  options: (key: string) => si.Option[];
+  group: typeof si.A6_GROUP;
+  na: string;
+  copyError: typeof si.COPY_ERROR_Q;
+  unscorable: typeof si.UNSCORABLE_Q;
+  required: string;
+  withinBand: string;
+  problemTitle: string;
+  problemMap: typeof si.PROBLEM_MAP;
+  problemNote: string;
+  tieBreaksTitle: string;
+  tieBreaks: string[];
+}
+
 /** Everything the main-study form shows that depends on the script: rubric text, box tags and the form's own wording. */
 export interface FormRubric {
   instructions: string[];
@@ -28,13 +48,14 @@ export interface FormRubric {
   bandNames: Bands;
   overall: ScoreQuestion;
   legibility: ScoreQuestion;
-  /** Tamil asks L1 straight after H1; Sinhala asks L after the criteria. */
+  /** Ask L straight after O (both rubrics do now). */
   legibilityFirst: boolean;
   criteriaIntro: string;
-  criterionText: (key: string) => { code: string; label: string; lookFor: string; bands: Bands } | null;
+  /** `bands` is null for choice criteria (Sinhala v12), which take their options from `choices`. */
+  criterionText: (key: string) => { code: string; label: string; lookFor: string; bands: Bands | null } | null;
   commentQ: string;
-  /** Sinhala only: decoration (D) and crossings-out questions. */
-  extras: { decoration: typeof si.DECORATION_Q; alterations: typeof si.ALTERATIONS_Q } | null;
+  /** Sinhala v12 choice criteria and extra boxes; null for 1–10 criteria (Tamil). */
+  choices: ChoiceRubric | null;
   issueTags: Record<string, { value: string; label: string }[]>;
   /** Criterion key whose boxes can record a letter part, and the parts. */
   partsKey: string | null;
@@ -111,11 +132,32 @@ const SI: FormRubric = {
   bandNames: si.BAND_NAMES,
   overall: si.OVERALL,
   legibility: si.LEGIBILITY,
-  legibilityFirst: false,
+  // v12 order: O, L, then A1–A8.
+  legibilityFirst: true,
   criteriaIntro: si.CRITERIA_INTRO,
-  criterionText: si.criterionText,
+  criterionText: (key) => {
+    const c = si.criterionText(key);
+    return c && { code: c.code, label: c.label, lookFor: c.lookFor, bands: null };
+  },
   commentQ: si.COMMENT_Q,
-  extras: { decoration: si.DECORATION_Q, alterations: si.ALTERATIONS_Q },
+  choices: {
+    criterion: si.criterionText,
+    options: (key) => {
+      const c = si.criterionText(key);
+      return c ? si.optionsFor(c) : [];
+    },
+    group: si.A6_GROUP,
+    na: si.NA_LABEL,
+    copyError: si.COPY_ERROR_Q,
+    unscorable: si.UNSCORABLE_Q,
+    required: "(අනිවාර්යයි)",
+    withinBand: si.WITHIN_BAND_HOWTO,
+    problemTitle: "ගැටලුවක් අයත් වන්නේ කුමන නිර්ණායකයටද?",
+    problemMap: si.PROBLEM_MAP,
+    problemNote: si.PROBLEM_MAP_NOTE,
+    tieBreaksTitle: "ඉක්මන් තීරණ",
+    tieBreaks: si.TIE_BREAKS,
+  },
   issueTags: si.ISSUE_TAGS,
   partsKey: "a1",
   parts: si.PARTS,
@@ -163,7 +205,7 @@ const SI: FormRubric = {
     continue: "ඉදිරියට",
     lookFor: "බලන්න",
     details: "විස්තර",
-    moreFlags: "+ වෙනත් ලකුණු (කියවිය නොහැකි අකුර, කපා හැරීම, සැරසිලි…)",
+    moreFlags: "+ වෙනත් ලකුණු (කියවිය නොහැකි අකුර, පිටපත් කිරීමේ වැරැද්ද, කපා හැරීම)",
     show: "පෙන්වන්න",
     hide: "සඟවන්න",
     layers: "ස්ථර",
@@ -262,7 +304,7 @@ const TA: FormRubric = {
   criteriaIntro: ta.CRITERIA_INTRO,
   criterionText: ta.criterionText,
   commentQ: ta.COMMENT_Q,
-  extras: null,
+  choices: null,
   issueTags: ta.ISSUE_TAGS,
   partsKey: null,
   parts: ta.PARTS,

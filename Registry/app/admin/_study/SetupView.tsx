@@ -193,7 +193,9 @@ export function SetupView({ data }: { data: StudyPageData }) {
               </div>
             </div>
             <div className="rounded-lg bg-muted/60 p-3 text-sm">
-              Questions are fixed (Rubric v1, in Sinhala): overall look, decoration, crossings-out, A1–A8 and legibility, each 1–10, plus optional weak-spot boxes.
+              {data.script === "si"
+                ? "Questions are fixed (Sinhala Rubric v12, in Sinhala): overall look (O) and legibility (L) on 1–10; A1–A5, A7, A8 as Excellent … Very weak; A6a–A6c spacing as None / Rare / Some / Many; copy error and unscorable boxes; plus optional weak-spot boxes."
+                : "Questions are fixed (Tamil rubric v0.3): H1, L1 and C1–C8, each 1–10."}
             </div>
           </>
         )}
