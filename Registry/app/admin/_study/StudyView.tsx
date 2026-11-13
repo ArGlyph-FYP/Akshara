@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, ArrowLeft, Check, Copy, Download, ExternalLink, Eye, ImagePlus, Link2, MessageSquareText, MoreHorizontal, Settings2, Trash2, UserX, Users } from "lucide-react";
+import { ArrowLeft, Check, Copy, Download, ExternalLink, Eye, ImagePlus, Link2, MessageSquareText, MoreHorizontal, Settings2, Trash2, UserX, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -26,7 +26,7 @@ import { COPY } from "./copy";
 import type { ItemInfo, StudyPageData } from "./load";
 import { markCounts, ResponsesDialog } from "./ResponsesDialog";
 import { SamplePicker } from "./SamplePicker";
-import { STATUS, surveyStatus as statusOf, type SurveyStatus } from "./status";
+import { deleteDescription, STATUS, surveyStatus as statusOf, type SurveyStatus } from "./status";
 
 type StudyStatus = SurveyStatus;
 
@@ -58,7 +58,7 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
   // Main study: how many samples have reached the target number of ratings (and the cap, where they stop going out).
   const target = study.targetPerSample ?? MAIN_DEFAULTS.targetPerSample;
   const cap = study.maxPerSample === undefined ? MAIN_DEFAULTS.maxPerSample : study.maxPerSample;
-  const regular = data.samples.filter((s) => !s.isAnchor).map((s) => bySample(s.id).length);
+  const regular = data.samples.map((s) => bySample(s.id).length);
   const atTarget = regular.filter((n) => n >= target).length;
   const low = Math.min(3, target);
   const coverageBands = [
@@ -139,11 +139,11 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                 onSelect={() =>
                   ask({
                     title: "Delete this survey?",
-                    description: "Only possible before anyone has submitted a response. Its share link stops working.",
-                    confirmLabel: "Delete survey",
+                    description: deleteDescription(done.length),
+                    confirmLabel: done.length ? `Delete survey and ${done.length} response(s)` : "Delete survey",
                     destructive: true,
                     onConfirm: async () => {
-                      const r = await deleteStudy(study.id);
+                      const r = await deleteStudy(study.id, { withResponses: done.length > 0 });
                       if (!r.ok) return void toast.error(r.error ?? "Something went wrong");
                       toast.success("Survey deleted");
                       router.push(STUDY_PATH[data.type]);
@@ -315,22 +315,15 @@ export function StudyView({ data, study }: { data: StudyPageData; study: Study }
                 <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <Thumb id={s.id} className="h-12 w-9 shrink-0 rounded" contain={!!s.part} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 font-mono font-medium">
-                      {code(s.id)}
-                      {main && s.isAnchor && (
-                        <Badge variant="outline" className="font-sans font-normal">
-                          <Anchor /> anchor
-                        </Badge>
-                      )}
-                    </div>
+                    <div className="font-mono font-medium">{code(s.id)}</div>
                     <div className="text-xs text-muted-foreground">
                       {its.length} response{its.length === 1 ? "" : "s"}
-                      {main && !s.isAnchor && ` of ${target}`}
+                      {main && ` of ${target}`}
                       {avg !== null && ` · average ${avg.toFixed(1)}`}
                       {main && s.part && ` · text ${s.part}`}
                     </div>
                   </div>
-                  {main && !s.isAnchor && (
+                  {main && (
                     <Badge variant={its.length >= target ? "default" : "outline"} className="tabular-nums" title={`${its.length} of ${target} ratings`}>
                       {its.length}/{target}
                     </Badge>

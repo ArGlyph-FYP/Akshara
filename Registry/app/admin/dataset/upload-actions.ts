@@ -156,8 +156,6 @@ async function finalize(meta: ScanMeta, id: string, uploadedBy: string) {
     width: Math.round(meta.width),
     height: Math.round(meta.height),
     status: "uploaded",
-    isAnchor: false,
-    anchorScores: null,
     uploadedAt: Date.now(),
     uploadedBy,
   };

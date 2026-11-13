@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, ImagePlus, Link2, Loader2 } from "lucide-react";
+import { ImagePlus, Link2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -36,12 +36,10 @@ export function SetupView({ data }: { data: StudyPageData }) {
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const picked = [...selected].map((id) => rowById.get(id)).filter((r) => !!r);
-  const anchors = picked.filter((r) => r.isAnchor).length;
   const n = picked.length;
-  const others = n - anchors;
-  const per = perReader.trim() ? Math.min(Number(perReader) || n, others) : main ? Math.min(MAIN_DEFAULTS.formSize, others) : others;
-  const text2 = picked.filter((r) => !r.isAnchor && r.part === 2).length;
-  const text1 = others - text2;
+  const per = perReader.trim() ? Math.min(Number(perReader) || n, n) : main ? Math.min(MAIN_DEFAULTS.formSize, n) : n;
+  const text2 = picked.filter((r) => r.part === 2).length;
+  const text1 = n - text2;
 
   // Samples chosen in the Dataset ("Add to study").
   useEffect(() => {
@@ -104,12 +102,6 @@ export function SetupView({ data }: { data: StudyPageData }) {
           <div className="p-4">
             <p className="mb-3 text-sm">
               <b className="tabular-nums">{n}</b> sample{n === 1 ? "" : "s"}
-              {main && anchors > 0 && (
-                <span className="text-muted-foreground">
-                  {" "}
-                  · <Anchor className="inline size-3.5" /> {anchors} calibration anchor{anchors === 1 ? "" : "s"}, shown first to every reader
-                </span>
-              )}
               {main && (
                 <span className="text-muted-foreground">
                   {" "}
@@ -204,8 +196,7 @@ export function SetupView({ data }: { data: StudyPageData }) {
           <p className="mb-3 text-sm text-muted-foreground">
             {n ? (
               <>
-                Each {main ? "form has" : "reader rates"} <b className="text-foreground">{per}</b> sample{per === 1 ? "" : "s"}
-                {main && anchors > 0 && <> plus {anchors} anchor{anchors === 1 ? "" : "s"}</>}. You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.
+                Each {main ? "form has" : "reader rates"} <b className="text-foreground">{per}</b> sample{per === 1 ? "" : "s"}. You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.
               </>
             ) : (
               <>You get a /{SURVEY_LANG[data.script]}/survey/… link to share straight away.</>

@@ -28,8 +28,6 @@ const sample = (id: string, code: string, extra: Partial<Sample> = {}): Sample =
   width: 1000,
   height: 2000,
   status: "qc_ok",
-  isAnchor: false,
-  anchorScores: null,
   uploadedAt: 1,
   uploadedBy: "a@x",
   ...extra,

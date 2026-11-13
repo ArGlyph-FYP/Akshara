@@ -1,18 +1,21 @@
 "use client";
 
-import { ArrowLeft, ChevronRight, ClipboardList, Copy, Plus } from "lucide-react";
+import { ArrowLeft, ChevronRight, ClipboardList, Copy, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/admin/Confirm";
 import { EmptyState, PageHeader } from "@/components/admin/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { SCRIPT_LABEL, STUDY_PATH, surveyPath, type Script, type StudyType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { deleteStudy } from "./actions";
 import { COPY } from "./copy";
 import type { StudyPageData, SurveySummary } from "./load";
 import { SetupView } from "./SetupView";
-import { STATUS } from "./status";
+import { deleteDescription, STATUS } from "./status";
 import { StudyView } from "./StudyView";
 
 /** List screen: every survey of one type for the script, with a button to make a new one. */
@@ -63,7 +66,22 @@ export function SurveyList(props: {
 }
 
 function SurveyRow({ survey: s, script, href }: { survey: SurveySummary; script: Script; href: string }) {
+  const router = useRouter();
+  const [confirmDialog, ask] = useConfirm();
   const pct = s.total ? Math.round((100 * s.done) / s.total) : 0;
+  const remove = () =>
+    ask({
+      title: `Delete “${s.title}”?`,
+      description: deleteDescription(s.done),
+      confirmLabel: s.done ? `Delete survey and ${s.done} response(s)` : "Delete survey",
+      destructive: true,
+      onConfirm: async () => {
+        const r = await deleteStudy(s.id, { withResponses: s.done > 0 });
+        if (!r.ok) return void toast.error(r.error ?? "Something went wrong");
+        toast.success("Survey deleted");
+        router.refresh();
+      },
+    });
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}${surveyPath(script, s.token!)}`);
@@ -105,8 +123,19 @@ function SurveyRow({ survey: s, script, href }: { survey: SurveySummary; script:
         >
           <Copy /> Copy link
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={remove}
+          aria-label={`Delete ${s.title}`}
+          title="Delete survey"
+          className="relative z-10 text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 />
+        </Button>
         <ChevronRight className="size-4 text-muted-foreground" />
       </div>
+      {confirmDialog}
     </div>
   );
 }

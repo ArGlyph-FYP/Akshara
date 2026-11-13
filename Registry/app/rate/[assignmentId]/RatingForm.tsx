@@ -1,13 +1,11 @@
 "use client";
 
-import { Anchor, Loader2, SquareDashedMousePointer, X } from "lucide-react";
+import { Loader2, SquareDashedMousePointer, X } from "lucide-react";
 import { useNextItem } from "@/lib/useNextItem";
 import { useEffect, useRef, useState } from "react";
 import { ImageAnnotator, colorFor, type Box } from "@/components/ImageAnnotator";
 import { ScoreButtons } from "@/components/ScoreButtons";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -32,7 +30,6 @@ export function RatingForm(props: {
   assignmentId: string;
   studyId: string;
   imageSrc: string;
-  isCalibration: boolean;
   position: number;
   total: number;
   next: { href: string; imageSrc: string | null };
@@ -54,7 +51,6 @@ export function RatingForm(props: {
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [feedback, setFeedback] = useState<{ overall: number | null; legibility: number | null; note: string } | null>(null);
 
   const cIndex = Object.fromEntries(criteria.map((c, i) => [c.id, i]));
   const label = (id: string) => criteria[cIndex[id]]?.labelEn ?? "?";
@@ -102,10 +98,6 @@ export function RatingForm(props: {
       setBusy(false);
       return setError(res.error);
     }
-    if (res.anchor) {
-      setBusy(false);
-      return setFeedback(res.anchor);
-    }
     next();
   }
 
@@ -114,11 +106,6 @@ export function RatingForm(props: {
       <div className="space-y-2">
         <div className="flex items-center gap-3 text-sm">
           <span className="truncate font-medium">{props.title}</span>
-          {props.isCalibration && (
-            <Badge variant="secondary" className="bg-brand-soft text-primary">
-              <Anchor /> Calibration sample
-            </Badge>
-          )}
           <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
             {props.position} / {props.total}
           </span>
@@ -249,24 +236,6 @@ export function RatingForm(props: {
           </Button>
         </section>
       </aside>
-
-      <Dialog open={!!feedback} onOpenChange={(o) => !o && next()}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Calibration reference</DialogTitle>
-            <DialogDescription>
-              You gave overall <b>{overall}</b> and legibility <b>{legibility}</b>. The research team&apos;s reference is overall{" "}
-              <b>{feedback?.overall ?? "–"}</b> and legibility <b>{feedback?.legibility ?? "–"}</b>.
-            </DialogDescription>
-          </DialogHeader>
-          {feedback?.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
-          <DialogFooter>
-            <Button className="w-full" onClick={next}>
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </main>
   );
 }

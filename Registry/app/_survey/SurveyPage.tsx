@@ -26,15 +26,14 @@ export async function SurveyPage({ script, token }: { script: Script; token: str
     const mine = await listAssignments({ studyId: study.id, raterId: session.uid });
     if (mine.length) redirect(`/rate/next?study=${study.id}`);
   }
-  // What one new reader will get: anchors (main study) + their share of the samples + blinded repeats.
+  // What one new reader will get: their share of the samples + blinded repeats.
   // Main study: one form of 10 (more can be asked for at the end).
   const usable = await usableStudySamples(study);
-  const anchors = study.type === "rubric" ? usable.filter((s) => s.isAnchor).length : 0;
-  const others = usable.length - anchors;
+  const others = usable.length;
   const perReader = study.type === "rubric" ? formSize(study) : study.perReader;
   const share = perReader ? Math.min(perReader, others) : others;
   const repeats = study.type === "rubric" ? Math.round(share * Math.min(50, study.repeatPct ?? 0) / 100) : 0;
-  const count = anchors + share + repeats;
+  const count = share + repeats;
   return (
     <Shell>
       <JoinForm

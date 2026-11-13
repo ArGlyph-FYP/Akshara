@@ -53,7 +53,7 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
     const form = queue.items.filter((x) => (x.batch ?? 1) === batch);
     const at = form.findIndex((x) => x.id === a.id);
     const parts = new Map((await getSamplesByIds([...new Set(form.map((x) => x.sampleId))])).map((x) => [x.id, x.part ?? null]));
-    const blockOf = (x: Assignment) => (x.kind === "anchor" ? null : parts.get(x.sampleId) === 2 ? 2 : 1);
+    const blockOf = (x: Assignment) => (parts.get(x.sampleId) === 2 ? 2 : 1);
     const block = blockOf(a);
     const prev = at > 0 ? form[at - 1] : null;
     return (
@@ -63,7 +63,6 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
         script={study.script}
         position={at + 1}
         total={form.length}
-        isCalibration={a.kind === "anchor"}
         block={block}
         blockChanged={block === 2 && !!prev && blockOf(prev) !== 2}
         title={study.title}
@@ -87,7 +86,6 @@ export default async function RateItem({ params }: { params: Promise<{ assignmen
     <RatingForm
       key={a.id}
       {...common}
-      isCalibration={a.kind === "anchor"}
       title={study.title}
       instructions={study.instructions}
       overallScale={study.overallScale}

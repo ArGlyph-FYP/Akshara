@@ -72,7 +72,7 @@ async function add(yes: boolean, total: number) {
       const s: Omit<Sample, "id"> & { testData: true; copiedFrom: string } = {
         participantCode: code, writerId: p.writerId, script: "si", phase: "main", pageNo: 1, part,
         sourcePath: null, crop: null, imagePath, thumbPath, contentType: src.contentType,
-        width: src.width, height: src.height, status: "qc_ok", isAnchor: false, anchorScores: null,
+        width: src.width, height: src.height, status: "qc_ok",
         uploadedAt: now, uploadedBy: "test-data script", testData: true, copiedFrom: src.id,
       };
       await db.collection("samples").doc(id).set(s);

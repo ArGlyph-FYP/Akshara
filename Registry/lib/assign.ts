@@ -3,7 +3,6 @@ import type { AssignmentKind } from "./types";
 
 export interface AssignSample {
   id: string;
-  isAnchor: boolean;
 }
 
 export interface ExistingAssignment {
@@ -41,8 +40,7 @@ export interface AssignResult {
 
 /**
  * Plans new rating assignments for one script, adding to what already exists:
- * - every rater gets each calibration anchor (first in their new batch)
- * - each non-anchor sample is topped up to `ratersPerSample` distinct raters, least-loaded raters first
+ * - each sample is topped up to `ratersPerSample` distinct raters, least-loaded raters first
  * - a share of each rater's new items is repeated later in their queue (kind "repeat")
  * The plan is deterministic for a given seed.
  */
@@ -57,7 +55,7 @@ export function planAssignments(input: AssignInput): AssignResult {
     return { assignments: [], warnings: ["No active raters for this script."] };
   }
 
-  const has = new Set<string>(); // raterId:sampleId for anchor/normal items
+  const has = new Set<string>(); // raterId:sampleId for every non-repeat item
   const coverage = new Map<string, Set<string>>(); // sampleId -> raters (normal)
   const load = new Map<string, number>(raterIds.map((r) => [r, 0]));
   const maxPos = new Map<string, number>(raterIds.map((r) => [r, -1]));
@@ -73,18 +71,11 @@ export function planAssignments(input: AssignInput): AssignResult {
     }
   }
 
-  const newAnchors = new Map<string, string[]>(raterIds.map((r) => [r, []]));
   const newNormals = new Map<string, string[]>(raterIds.map((r) => [r, []]));
-
-  for (const s of input.samples.filter((s) => s.isAnchor)) {
-    for (const r of raterIds) {
-      if (!has.has(`${r}:${s.id}`)) newAnchors.get(r)!.push(s.id);
-    }
-  }
 
   const target = Math.max(1, Math.floor(input.ratersPerSample));
   let short = 0;
-  for (const s of shuffle(input.samples.filter((s) => !s.isAnchor), rand)) {
+  for (const s of shuffle(input.samples, rand)) {
     const covered = coverage.get(s.id) ?? new Set<string>();
     const need = target - covered.size;
     if (need <= 0) continue;
@@ -107,12 +98,8 @@ export function planAssignments(input: AssignInput): AssignResult {
 
   const assignments: NewAssignment[] = [];
   for (const r of raterIds) {
-    const anchors = newAnchors.get(r)!;
     const normals = shuffle(newNormals.get(r)!, rand);
-    const seq: { sampleId: string; kind: AssignmentKind }[] = [
-      ...anchors.map((id) => ({ sampleId: id, kind: "anchor" as const })),
-      ...normals.map((id) => ({ sampleId: id, kind: "normal" as const })),
-    ];
+    const seq: { sampleId: string; kind: AssignmentKind }[] = normals.map((id) => ({ sampleId: id, kind: "normal" as const }));
 
     // Repeat originals come from the first half of the normal items so there is room for a gap.
     const repeatCount = Math.round(normals.length * repeatFraction);
@@ -134,7 +121,7 @@ export function planAssignments(input: AssignInput): AssignResult {
 
 /**
  * Manual mode: every chosen rater gets every chosen sample they don't already have in this study.
- * Anchors go first, the rest in a per-rater random order, appended after each rater's existing queue.
+ * They come in a per-rater random order, appended after each rater's existing queue.
  */
 export function planAllToAll(input: {
   samples: AssignSample[];
@@ -149,20 +136,13 @@ export function planAllToAll(input: {
     const have = new Set(mine.filter((a) => a.kind !== "repeat").map((a) => a.sampleId));
     const base = mine.reduce((m, a) => Math.max(m, a.position), -1) + 1;
     const todo = input.samples.filter((s) => !have.has(s.id));
-    const ordered = [
-      ...todo.filter((s) => s.isAnchor),
-      ...shuffle(todo.filter((s) => !s.isAnchor), rand),
-    ];
-    ordered.forEach((s, i) =>
-      out.push({ raterId: r, sampleId: s.id, kind: s.isAnchor ? "anchor" : "normal", position: base + i }),
-    );
+    shuffle(todo, rand).forEach((s, i) => out.push({ raterId: r, sampleId: s.id, kind: "normal", position: base + i }));
   }
   return out;
 }
 
 /**
- * Public link: plans one new reader's queue. Calibration anchors they haven't seen come first (kind "anchor").
- * Other samples are chosen least-covered first (random among ties), so every sample collects as many readers
+ * Public link: plans one new reader's queue. Samples are chosen least-covered first (random among ties), so every sample collects as many readers
  * as possible; `perReader` caps them (null = all) and their order is shuffled. With `repeatFraction`, a share of
  * those items is shown again later in the queue, blinded (kind "repeat"), at least `minRepeatGap` items apart.
  */
@@ -182,18 +162,13 @@ export function planForNewReader(input: {
   }
   const mine = new Set(input.existing.filter((a) => a.raterId === input.readerId).map((a) => a.sampleId));
   const fresh = input.samples.filter((s) => !mine.has(s.id));
-  const anchors = fresh.filter((s) => s.isAnchor);
   const candidates = fresh
-    .filter((s) => !s.isAnchor)
     .map((s) => ({ s, cov: coverage.get(s.id)!, tie: rand() }))
     .sort((a, b) => a.cov - b.cov || a.tie - b.tie);
   const n = input.perReader && input.perReader > 0 ? Math.min(input.perReader, candidates.length) : candidates.length;
   const normals = shuffle(candidates.slice(0, n).map((c) => c.s.id), rand);
 
-  const seq: { sampleId: string; kind: AssignmentKind }[] = [
-    ...anchors.map((s) => ({ sampleId: s.id, kind: "anchor" as const })),
-    ...normals.map((id) => ({ sampleId: id, kind: "normal" as const })),
-  ];
+  const seq: { sampleId: string; kind: AssignmentKind }[] = normals.map((id) => ({ sampleId: id, kind: "normal" as const }));
   const gap = input.minRepeatGap ?? 5;
   const repeatCount = Math.round(normals.length * Math.min(Math.max(input.repeatFraction ?? 0, 0), 0.5));
   for (const sampleId of shuffle(normals.slice(0, Math.ceil(normals.length / 2)), rand).slice(0, repeatCount)) {
@@ -209,7 +184,6 @@ export function planForNewReader(input: {
 
 export interface BatchSample {
   id: string;
-  isAnchor: boolean;
   /** Paragraph number of a split form page: 1 = text 1, 2 = text 2 (null = whole page, treated as text 1). */
   part: number | null;
   writerId: string;
@@ -235,7 +209,7 @@ export const STALE_PENDING_MS = 3 * 24 * 60 * 60 * 1000;
 
 /**
  * How many readers each sample has: done ratings, plus pending items handed out recently.
- * Repeats and anchors don't count, and skipped items (reader recognised the writer) don't either.
+ * Repeats (and items of the old "anchor" kind) don't count, and skipped items (reader recognised the writer) don't either.
  */
 export function sampleCoverage(items: CoverageItem[], now: number): Map<string, number> {
   const out = new Map<string, number>();
@@ -253,7 +227,7 @@ export function sampleCoverage(items: CoverageItem[], now: number): Map<string, 
  * - Half text 1 (part 1), half text 2 (part 2); if one text runs short the other fills in.
  * - Least-covered samples first, random among ties; samples at `maxPerSample` are not handed out.
  * - Avoids both paragraphs of one writer in the same form when other samples are available.
- * - Order: calibration anchors (first form only), then the text-1 block, then the text-2 block, each shuffled.
+ * - Order: the text-1 block, then the text-2 block, each shuffled.
  *   A share of items (`repeatFraction`) is shown again, blinded, at the end of its own block.
  */
 export function planBatch(input: {
@@ -276,9 +250,8 @@ export function planBatch(input: {
   const size = Math.max(1, Math.floor(input.batchSize));
   const cap = input.maxPerSample && input.maxPerSample > 0 ? input.maxPerSample : Infinity;
 
-  const anchors = batch === 1 ? input.samples.filter((s) => s.isAnchor && !had.has(s.id)) : [];
   const open = input.samples
-    .filter((s) => !s.isAnchor && !had.has(s.id) && (coverage.get(s.id) ?? 0) < cap)
+    .filter((s) => !had.has(s.id) && (coverage.get(s.id) ?? 0) < cap)
     .map((s) => ({ s, cov: coverage.get(s.id) ?? 0, tie: rand() }))
     .sort((a, b) => a.cov - b.cov || a.tie - b.tie)
     .map((x) => x.s);
@@ -327,10 +300,6 @@ export function planBatch(input: {
     ...ids.map((id) => ({ sampleId: id, kind: "normal" as const })),
     ...ids.filter((id) => repeats.has(id)).map((id) => ({ sampleId: id, kind: "repeat" as const })),
   ];
-  const seq: Step[] = [
-    ...anchors.map((s) => ({ sampleId: s.id, kind: "anchor" as const })),
-    ...blockSeq(block1),
-    ...blockSeq(block2),
-  ];
+  const seq: Step[] = [...blockSeq(block1), ...blockSeq(block2)];
   return seq.map((x, i) => ({ raterId: input.readerId, sampleId: x.sampleId, kind: x.kind, position: base + i, batch }));
 }

@@ -13,3 +13,9 @@ export const STATUS: Record<SurveyStatus, { label: string; hint: string }> = {
   full: { label: "No new readers", hint: "People who joined can finish" },
   closed: { label: "Closed", hint: "Nobody can rate" },
 };
+
+/** Confirm text for deleting a survey; responses are deleted with it. */
+export const deleteDescription = (responses: number) =>
+  responses
+    ? `Its share link stops working, and its ${responses} response(s) are deleted for good. Download the responses first if you need them, or close the survey instead.`
+    : "No one has submitted a response yet. Its share link stops working.";

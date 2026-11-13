@@ -97,7 +97,6 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
     "width",
     "height",
     "status",
-    "is_anchor",
   ];
   const samplesCsv = toCsv(
     sampleCols,
@@ -114,7 +113,6 @@ export function buildExport(data: ExportData, opts: ExportOptions): ExportBuild 
       width: s.width,
       height: s.height,
       status: s.status,
-      is_anchor: s.isAnchor,
     })),
   );
 
@@ -422,7 +420,7 @@ export function buildManifest(
       notes: [
         "Withdrawn participants are excluded.",
         "Group cross-validation folds by writer_id.",
-        "kind=repeat rows are blinded repeats for intra-rater reliability; kind=anchor rows are calibration items.",
+        "kind=repeat rows are blinded repeats for intra-rater reliability.",
       ],
       files: Object.keys(build.files).concat(Object.keys(imageHashes).length ? ["images/"] : []),
       image_sha256: imageHashes,

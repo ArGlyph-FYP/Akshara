@@ -218,15 +218,20 @@ export async function removeReader(studyId: string, uid: string): Promise<Result
   }
 }
 
-/** Deletes a study that has no responses yet (otherwise close it instead). */
-export async function deleteStudy(studyId: string): Promise<Result> {
+/**
+ * Deletes a study with its handed-out items. A study with responses is only deleted when `withResponses` is set
+ * (the admin confirmed it), and then its responses go too.
+ */
+export async function deleteStudy(studyId: string, opts: { withResponses?: boolean } = {}): Promise<Result> {
   try {
     await assertAdmin();
     await loadStudy(studyId);
     const ratings = await listRatings({ studyId });
-    if (ratings.length) throw new Error(`This study has ${ratings.length} response(s). Close it instead of deleting.`);
+    if (ratings.length && !opts.withResponses) {
+      throw new Error(`This survey has ${ratings.length} response(s). Confirm deleting them with the survey, or close it instead.`);
+    }
     const items = await listAssignments({ studyId });
-    await deleteAll(items.map((a) => col.assignments().doc(a.id)));
+    await deleteAll([...ratings.map((r) => col.ratings().doc(r.id)), ...items.map((a) => col.assignments().doc(a.id))]);
     await col.studies().doc(studyId).delete();
     refresh();
     return { ok: true };

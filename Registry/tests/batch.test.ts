@@ -4,10 +4,8 @@ import { STALE_PENDING_MS, planBatch, sampleCoverage, type BatchSample, type Cov
 const NOW = 1_000_000_000_000;
 
 /** n writers, each with paragraph 1 and paragraph 2 (ids w0-1, w0-2, …). */
-function writers(n: number, anchors: string[] = []): BatchSample[] {
-  return Array.from({ length: n }, (_, i) =>
-    [1, 2].map((part) => ({ id: `w${i}-${part}`, part, writerId: `w${i}`, isAnchor: anchors.includes(`w${i}-${part}`) })),
-  ).flat();
+function writers(n: number): BatchSample[] {
+  return Array.from({ length: n }, (_, i) => [1, 2].map((part) => ({ id: `w${i}-${part}`, part, writerId: `w${i}` }))).flat();
 }
 
 const done = (raterId: string, sampleId: string, extra: Partial<CoverageItem> = {}): CoverageItem => ({
@@ -94,15 +92,6 @@ describe("planBatch", () => {
     expect(plan.filter((a) => a.sampleId.endsWith("-2"))).toHaveLength(2);
     // Text-1 block still comes first.
     expect(plan.slice(0, 8).every((a) => a.sampleId.endsWith("-1"))).toBe(true);
-  });
-
-  it("puts anchors first in the first form only, outside the 10", () => {
-    const samples = writers(20, ["w19-1"]);
-    const plan = planBatch({ ...base, samples, existing: [] });
-    expect(plan[0]).toMatchObject({ sampleId: "w19-1", kind: "anchor" });
-    expect(plan.filter((a) => a.kind === "normal")).toHaveLength(10);
-    const existing = plan.map((a) => done("me", a.sampleId, { position: a.position, kind: a.kind }));
-    expect(planBatch({ ...base, samples, existing }).some((a) => a.kind === "anchor")).toBe(false);
   });
 
   it("adds a blinded repeat at the end of its own block", () => {
