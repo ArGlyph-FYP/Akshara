@@ -82,7 +82,7 @@ export async function startStudy(input: {
     const samples = await usableSamples(input.script, dataset.id, input.sampleIds ?? []);
     if (samples.length === 0) throw new Error("Pick at least one sample (withdrawn or rejected scans can't be used)");
 
-    // Main study: the fixed criteria in code (Sinhala Rubric v12, Tamil rubric v0.3).
+    // Main study: the fixed criteria in code (Sinhala rubric v_final, Tamil rubric v0.3).
     const rubricVersion = input.type === "rubric" ? rubricVersionFor(input.script) : null;
     const id = newId();
     const main = input.type === "rubric";
