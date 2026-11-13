@@ -17,7 +17,7 @@ export async function loadExportData(db: Firestore) {
     participants: participants.docs.map((d) => d.data() as Participant),
     samples: samples.docs.map((d) => ({ id: d.id, ...d.data() }) as Sample),
     ratings: ratings.docs.map((d) => ({ id: d.id, ...d.data() }) as Rating),
-    // Fixed criteria from code: Sinhala Rubric v12 (A1–A8, A6a–A6c) and Tamil rubric v0.3 (C1–C8).
+    // Fixed criteria from code: Sinhala rubric v_final (A1–A8, A6a–A6c) and Tamil rubric v0.3 (C1–C8).
     criteria: [...rubricCriteria("si"), ...rubricCriteria("ta")],
     raterAliases: Object.fromEntries(users.docs.map((d) => [d.id, (d.data() as UserDoc).alias])),
     raterInfo: Object.fromEntries(

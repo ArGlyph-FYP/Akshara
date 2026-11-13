@@ -9,7 +9,7 @@ import { BAND_NAMES, BAND_RANGES, COUNT_NAMES, CRITERIA, LEVEL_NAMES, OVERALL, b
 import { cn } from "@/lib/utils";
 import { recordTraining } from "../actions";
 
-/** A short Sinhala tour of the main-study form (Rubric v12, 4 cards), which raters can skip. */
+/** A short Sinhala tour of the main-study form (Rubric v_final, 4 cards), which raters can skip. */
 export function Tour({ studyId }: { studyId: string }) {
   const router = useRouter();
   const [step, setStep] = useState<number | null>(null); // null = the choice screen
@@ -52,8 +52,8 @@ export function Tour({ studyId }: { studyId: string }) {
           </li>
           <li>මුළු ඡේදයටම සාමාන්‍ය දේ අනුව ඇගයන්න. එක් වරක් පමණක් සිදු වූ වැරැද්දක් නිසා ලකුණ අඩු නොකරන්න; නැවත නැවත සිදු වන හෝ බරපතල ගැටලු ගණන් ගන්න.</li>
           <li>
-            ලියා ඇති දේ පමණක් විනිශ්චය කරන්න. පාඨයට සාපේක්ෂව අකුරක් හෝ ලකුණක් අඩු, අමතර හෝ වැරදි නම් <b>පිටපත් කිරීමේ වැරැද්ද</b> තෝරන්න; එය වෙනත් නිර්ණායකයක
-            ගණන් නොගන්න.
+            ලියා ඇති දේ පමණක් විනිශ්චය කරන්න. පාඨයට සාපේක්ෂව අකුරක් හෝ ලකුණක් අඩු, අමතර හෝ වැරදි නම් <b>පිටපත් කිරීමේ වැරැද්ද</b> තෝරන්න; O සහ L
+            ඇතුළු කිසිදු ලකුණක් එය නිසා අඩු නොකරන්න.
           </li>
           <li>සෑම ගැටලුවක්ම එක් වරක් පමණක්, එය අයත් නිර්ණායකය යටතේ ගණන් ගන්න.</li>
         </ul>

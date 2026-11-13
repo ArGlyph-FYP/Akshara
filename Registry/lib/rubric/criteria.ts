@@ -4,7 +4,7 @@ import { CRITERIA as TA_CRITERIA } from "./ta";
 
 /**
  * The main-study criteria are fixed in code, not in the database, so every survey and export uses the same set.
- * Sinhala: Rubric v12 (10 Nov 2026): A1–A5, A7, A8 on five levels (1 = Very weak … 5 = Excellent) and
+ * Sinhala: rubric v_final (11 Nov 2026; stored as version 12, same answers as v12): A1–A5, A7, A8 on five levels (1 = Very weak … 5 = Excellent) and
  * A6a–A6c on four (0 = None … 3 = Many). Tamil: rubric v0.3 (26 Oct 2026), C1–C8, each 1–10.
  * IDs are the keys (a1…a8, a6a…a6c, c1…c8), which is also how ratings store criterion scores.
  */
