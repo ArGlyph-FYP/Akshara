@@ -31,7 +31,6 @@ export async function datasetRows(script: Script, datasetId: string): Promise<{ 
       part: s.part ?? null,
       phase: s.phase,
       status: s.status,
-      isAnchor: s.isAnchor,
       writerId: s.writerId,
       uploadedAt: s.uploadedAt,
       imageV: s.editedAt ?? s.uploadedAt,

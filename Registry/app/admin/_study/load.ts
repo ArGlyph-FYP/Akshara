@@ -63,7 +63,7 @@ export interface StudyPageData {
   refs: StudyRef[];
   /** The fixed main-study criteria (A1–A8). */
   criteria: Criterion[];
-  samples: { id: string; code: string; pageNo: number; part: number | null; isAnchor: boolean }[];
+  samples: { id: string; code: string; pageNo: number; part: number | null }[];
   readers: ReaderInfo[];
   items: ItemInfo[];
 }
@@ -140,7 +140,7 @@ export async function loadStudyPage(script: Script, dataset: Dataset, type: Stud
     ...base,
     samples: samples
       .sort(compareSamples)
-      .map((s) => ({ id: s.id, code: s.participantCode, pageNo: s.pageNo, part: s.part ?? null, isAnchor: s.isAnchor })),
+      .map((s) => ({ id: s.id, code: s.participantCode, pageNo: s.pageNo, part: s.part ?? null })),
     readers: users
       .map((u) => ({
         uid: u.uid,

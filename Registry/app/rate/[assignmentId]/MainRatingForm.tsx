@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, CircleDashed, ZoomIn, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
+import { Check, ChevronDown, Eraser, Eye, EyeOff, Hand, Info, Languages, Layers, CircleDashed, ZoomIn, Loader2, PanelRightClose, SquareDashedMousePointer, X } from "lucide-react";
 import { useNextItem } from "@/lib/useNextItem";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -49,8 +49,7 @@ export function MainRatingForm(props: {
   assignmentId: string;
   studyId: string;
   imageSrc: string;
-  isCalibration: boolean;
-  /** 1 = text 1, 2 = text 2 (null for calibration samples). */
+  /** 1 = text 1, 2 = text 2. */
   block: number | null;
   /** First sample of the text-2 block in this form. */
   blockChanged: boolean;
@@ -105,7 +104,6 @@ export function MainRatingForm(props: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [help, setHelp] = useState(props.position === 1);
-  const [feedback, setFeedback] = useState<{ overall: number | null; legibility: number | null; note: string } | null>(null);
 
   const keyOf = Object.fromEntries(criteria.map((c) => [c.id, c.key]));
   const code = (id: string) => R.criterionText(keyOf[id] ?? "")?.code ?? criteria.find((c) => c.id === id)?.labelEn ?? "?";
@@ -260,10 +258,6 @@ export function MainRatingForm(props: {
       setBusy(false);
       return setError(res.error);
     }
-    if (res.anchor) {
-      setBusy(false);
-      return setFeedback(res.anchor);
-    }
     next();
   }
 
@@ -288,16 +282,10 @@ export function MainRatingForm(props: {
     <main className="mx-auto grid max-w-[1600px] grid-cols-[minmax(0,1fr)] gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <div className="flex min-w-0 flex-col gap-2 lg:h-[calc(100vh-5rem)]">
         <div className="flex items-center gap-2 text-sm">
-          {props.isCalibration ? (
+          {props.block && (
             <Badge variant="secondary" className="bg-brand-soft text-primary">
-              <Anchor /> {ui.calibration}
+              {ui.block(props.block)}
             </Badge>
-          ) : (
-            props.block && (
-              <Badge variant="secondary" className="bg-brand-soft text-primary">
-                {ui.block(props.block)}
-              </Badge>
-            )
           )}
           <span className="truncate text-muted-foreground">{props.title}</span>
           <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
@@ -647,23 +635,6 @@ export function MainRatingForm(props: {
           <DialogFooter>
             <Button className="w-full" onClick={() => setHelp(false)}>
               {ui.start}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!feedback} onOpenChange={(o) => !o && next()}>
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>{ui.calTitle}</DialogTitle>
-            <DialogDescription>
-              {ui.calBody(unscorable ? { overall: "–", legibility: "–" } : { overall, legibility }, { overall: feedback?.overall ?? "–", legibility: feedback?.legibility ?? "–" })}
-            </DialogDescription>
-          </DialogHeader>
-          {feedback?.note && <p className="text-sm text-muted-foreground">{feedback.note}</p>}
-          <DialogFooter>
-            <Button className="w-full" onClick={next}>
-              {ui.continue}
             </Button>
           </DialogFooter>
         </DialogContent>

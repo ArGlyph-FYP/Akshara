@@ -3,7 +3,7 @@
 import { run } from "@/lib/action";
 import { assertStaff } from "@/lib/auth";
 import { newId } from "@/lib/codes";
-import { col, criteriaFor, db, getSample, getStudy } from "@/lib/data";
+import { col, criteriaFor, db, getStudy } from "@/lib/data";
 import { assignNextBatch } from "@/lib/public";
 import { rubricVersionFor } from "@/lib/rubric/criteria";
 import { formRubric } from "@/lib/rubric/form";
@@ -35,7 +35,6 @@ const clampBox = (g: Region) => ({ x: clamp(g.x), y: clamp(g.y), w: clamp(g.w), 
 
 /** Saves one rating (either study type) and marks the queue item done. */
 export async function submitRating(input: RatingInput) {
-  let anchor: { overall: number | null; legibility: number | null; note: string } | null = null;
   const res = await run(async () => {
     const s = await assertStaff();
     const ref = col.assignments().doc(input.assignmentId);
@@ -142,13 +141,10 @@ export async function submitRating(input: RatingInput) {
       tx.set(col.ratings().doc(newId()), rating);
       tx.update(ref, { status: "done" });
     });
-    // No revalidatePath here: re-rendering this item's page would redirect away before the anchor feedback shows.
-    if (a.kind === "anchor" && study.type === "rubric") {
-      const sample = await getSample(a.sampleId);
-      if (sample?.anchorScores) anchor = sample.anchorScores;
-    }
+    // No revalidatePath here: the form moves on to the next item itself.
   });
-  return { ...res, anchor };
+  // run() never returns null; spreading keeps the return type non-null for the forms.
+  return { ...res };
 }
 
 /** Records whether the rater took the short tour or skipped it (kept for analysis). */

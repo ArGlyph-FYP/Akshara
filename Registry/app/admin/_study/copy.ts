@@ -23,7 +23,7 @@ export const COPY: Record<
     listNoun: "main-study surveys",
     description:
       "Phase C. Raters open your link, enter their details, then rate each sample's overall look, legibility and every rubric criterion, and box weak regions.",
-    sampleHint: "Usually every approved main-phase scan. Calibration anchors (marked in the Dataset) are shown first to every rater.",
+    sampleHint: "Usually every approved main-phase scan.",
     filters: { ...DEFAULT_FILTERS, phase: "main", qc: "qc_ok" },
     invite: "Hello! Thank you for rating handwriting for the Akshara study (University of Moratuwa). Open this link, enter your name and start:",
   },

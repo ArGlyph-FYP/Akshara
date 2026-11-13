@@ -30,7 +30,7 @@ export async function assignPublicReader(study: Study, uid: string): Promise<num
   const mine = await listAssignments({ studyId: study.id, raterId: uid });
   if (mine.length) return mine.length;
   if (study.type === "rubric") return assignNextBatch(study, uid);
-  const samples = (await usableStudySamples(study)).map((s) => ({ id: s.id, isAnchor: false }));
+  const samples = (await usableStudySamples(study)).map((s) => ({ id: s.id }));
 
   // Coverage (how many readers each sample already has) only matters when readers get a subset of the samples.
   // Then read just the two fields it needs; when everyone rates everything, skip reading other readers' items.
@@ -65,7 +65,6 @@ export async function assignNextBatch(study: Study, uid: string): Promise<number
   if (open) return open;
   const samples = (await usableStudySamples(study)).map((s) => ({
     id: s.id,
-    isAnchor: s.isAnchor,
     part: s.part ?? null,
     writerId: s.writerId,
   }));

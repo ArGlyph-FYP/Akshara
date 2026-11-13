@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { planAssignments, type NewAssignment } from "@/lib/assign";
 
-const samples = (n: number, anchors = 0) =>
-  Array.from({ length: n }, (_, i) => ({ id: `s${i}`, isAnchor: i < anchors }));
+const samples = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `s${i}` }));
 const raters = ["r1", "r2", "r3", "r4"];
 
 function byRater(as: NewAssignment[]) {
@@ -40,21 +39,6 @@ describe("planAssignments", () => {
     });
     const counts = [...byRater(assignments).values()].map((l) => l.length);
     expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
-  });
-
-  it("puts anchors first for every rater", () => {
-    const { assignments } = planAssignments({
-      samples: samples(20, 2),
-      raterIds: raters,
-      existing: [],
-      ratersPerSample: 2,
-      repeatFraction: 0.1,
-      seed: "t",
-    });
-    for (const list of byRater(assignments).values()) {
-      expect(list.slice(0, 2).every((a) => a.kind === "anchor")).toBe(true);
-      expect(list.filter((a) => a.kind === "anchor")).toHaveLength(2);
-    }
   });
 
   it("adds the requested share of repeats, later in the queue and never adjacent", () => {
@@ -121,20 +105,21 @@ describe("planAssignments", () => {
 
   it("is deterministic for a seed", () => {
     const run = () =>
-      planAssignments({ samples: samples(30, 1), raterIds: raters, existing: [], ratersPerSample: 3, repeatFraction: 0.2, seed: "same" });
+      planAssignments({ samples: samples(30), raterIds: raters, existing: [], ratersPerSample: 3, repeatFraction: 0.2, seed: "same" });
     expect(run()).toEqual(run());
   });
 });
 
 describe("planAllToAll", () => {
-  it("gives every rater every sample once, anchors first, appended after existing items", async () => {
+  it("gives every rater every sample once, appended after existing items", async () => {
     const { planAllToAll } = await import("@/lib/assign");
     const existing = [{ raterId: "r1", sampleId: "s0", kind: "normal" as const, position: 4 }];
-    const out = planAllToAll({ samples: samples(5, 1), raterIds: ["r1", "r2"], existing, seed: "m" });
+    const out = planAllToAll({ samples: samples(5), raterIds: ["r1", "r2"], existing, seed: "m" });
     const r1 = out.filter((a) => a.raterId === "r1").sort((a, b) => a.position - b.position);
     const r2 = out.filter((a) => a.raterId === "r2").sort((a, b) => a.position - b.position);
     expect(r2.map((a) => a.sampleId).sort()).toEqual(["s0", "s1", "s2", "s3", "s4"]);
-    expect(r2[0]).toMatchObject({ sampleId: "s0", kind: "anchor", position: 0 });
+    expect(r2.map((a) => a.position)).toEqual([0, 1, 2, 3, 4]);
+    expect(out.every((a) => a.kind === "normal")).toBe(true);
     // r1 already had s0, so it gets the other 4 starting after position 4
     expect(r1.map((a) => a.sampleId).sort()).toEqual(["s1", "s2", "s3", "s4"]);
     expect(r1[0].position).toBe(5);
@@ -172,15 +157,9 @@ describe("planForNewReader", () => {
     expect(Math.min(...out.map((a) => a.position))).toBe(1);
   });
 
-  it("puts anchors first for every reader and adds blinded repeats later in the queue", async () => {
+  it("adds blinded repeats later in the queue", async () => {
     const { planForNewReader } = await import("@/lib/assign");
-    const out = planForNewReader({ samples: samples(22, 2), readerId: "p1", existing: [], perReader: null, seed: "z", repeatFraction: 0.1 });
-    expect(out.slice(0, 2).map((a) => [a.sampleId, a.kind])).toEqual(
-      expect.arrayContaining([
-        ["s0", "anchor"],
-        ["s1", "anchor"],
-      ]),
-    );
+    const out = planForNewReader({ samples: samples(20), readerId: "p1", existing: [], perReader: null, seed: "z", repeatFraction: 0.1 });
     expect(out.filter((a) => a.kind === "normal")).toHaveLength(20);
     const repeats = out.filter((a) => a.kind === "repeat");
     expect(repeats).toHaveLength(2);
@@ -188,12 +167,6 @@ describe("planForNewReader", () => {
       const orig = out.find((a) => a.sampleId === r.sampleId && a.kind === "normal")!;
       expect(r.position - orig.position).toBeGreaterThan(5);
     }
-    expect(out.map((a) => a.position)).toEqual([...Array(24).keys()]);
-  });
-
-  it("does not count anchors against the per-reader cap", async () => {
-    const { planForNewReader } = await import("@/lib/assign");
-    const out = planForNewReader({ samples: samples(10, 1), readerId: "p1", existing: [], perReader: 3, seed: "w" });
-    expect(out.map((a) => a.kind)).toEqual(["anchor", "normal", "normal", "normal"]);
+    expect(out.map((a) => a.position)).toEqual([...Array(22).keys()]);
   });
 });

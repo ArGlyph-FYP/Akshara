@@ -89,9 +89,9 @@ export interface Sample {
   width: number;
   height: number;
   status: SampleStatus;
-  isAnchor: boolean;
-  /** Reference scores shown to raters after rating a calibration anchor. */
-  anchorScores: { overall: number | null; legibility: number | null; note: string } | null;
+  /** Legacy: calibration anchors were removed. Older scans may still carry these fields; nothing reads them. */
+  isAnchor?: boolean;
+  anchorScores?: { overall: number | null; legibility: number | null; note: string } | null;
   uploadedAt: number;
   uploadedBy: string;
   /** When the paragraph was re-cut after upload (changes the image, so cached copies must be refreshed). */
@@ -171,6 +171,7 @@ export interface Study {
   createdAt: number;
 }
 
+/** "anchor" is legacy (calibration anchors were removed); older items may still carry it. */
 export type AssignmentKind = "anchor" | "normal" | "repeat";
 
 export interface Assignment {

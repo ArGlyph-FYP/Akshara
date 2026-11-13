@@ -1,8 +1,7 @@
 "use client";
 
-import { Anchor, CheckCircle2, Circle, CircleDashed, ImageOff, LayoutGrid, List, Search, X } from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, ImageOff, LayoutGrid, List, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -17,10 +16,9 @@ export interface Filters {
   qc: "all" | "uploaded" | "qc_ok" | "rejected" | "excluded";
   rating: "all" | RatingState;
   study: "all" | "none" | string;
-  anchors: boolean;
 }
 
-export const DEFAULT_FILTERS: Filters = { q: "", phase: "all", qc: "all", rating: "all", study: "all", anchors: false };
+export const DEFAULT_FILTERS: Filters = { q: "", phase: "all", qc: "all", rating: "all", study: "all" };
 
 export function applyFilters(rows: SampleRow[], f: Filters): SampleRow[] {
   const q = f.q.trim().toUpperCase().replace(/\s+/g, "");
@@ -30,8 +28,7 @@ export function applyFilters(rows: SampleRow[], f: Filters): SampleRow[] {
       (f.phase === "all" || r.phase === f.phase) &&
       (f.qc === "all" || r.status === f.qc) &&
       (f.rating === "all" || r.rating === f.rating) &&
-      (f.study === "all" || (f.study === "none" ? r.studyIds.length === 0 : r.studyIds.includes(f.study))) &&
-      (!f.anchors || r.isAnchor),
+      (f.study === "all" || (f.study === "none" ? r.studyIds.length === 0 : r.studyIds.includes(f.study))),
   );
 }
 
@@ -99,9 +96,6 @@ export function FilterBar({
         label="Study"
         options={[["all", "In any or no study"], ["none", "Not in any study"], ...studies.map((s) => [s.id, `In: ${s.title}`] as [string, string])]}
       />
-      <Button variant={filters.anchors ? "secondary" : "outline"} size="sm" onClick={() => set("anchors", !filters.anchors)} className="h-8">
-        <Anchor /> Anchors
-      </Button>
       {dirty && (
         <Button variant="ghost" size="sm" onClick={() => setFilters(DEFAULT_FILTERS)} className="h-8">
           <X /> Clear
@@ -223,11 +217,6 @@ export function SampleGrid({
                 >
                   <Checkbox checked={isSel} onCheckedChange={() => onToggle(r.id)} aria-label={`Select ${sampleLabel(r)}`} />
                 </div>
-              )}
-              {r.isAnchor && (
-                <Badge variant="secondary" className="absolute top-2 right-2 bg-card/90">
-                  <Anchor /> anchor
-                </Badge>
               )}
               <div className="space-y-1.5 border-t px-2.5 py-2">
                 <div className="flex items-center justify-between gap-1">

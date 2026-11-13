@@ -115,8 +115,6 @@ async function main() {
       const s: Omit<Sample, "id"> = {
         participantCode: code, writerId: p.writerId, script, phase, pageNo: 1, imagePath, contentType: "image/png",
         width: 1240, height: 1754, status: phase === "main" ? "qc_ok" : "uploaded",
-        isAnchor: phase === "main" && n === pilot + 1,
-        anchorScores: phase === "main" && n === pilot + 1 ? { overall: 5, legibility: 4, note: "DEMO: neat, but the baseline drifts upward." } : null,
         uploadedAt: Date.now(), uploadedBy: "admin@akshara.test",
       };
       await db.collection("samples").doc(id).set(s);
@@ -127,11 +125,11 @@ async function main() {
 
   // A perception study (every SI rater sees every pilot sample) and a rubric study (3 raters per main sample).
   const siRaters = (await db.collection("users").where("scripts", "array-contains", "si").where("role", "==", "rater").get()).docs.map((d) => d.id);
-  const siMain = (await db.collection("samples").where("script", "==", "si").where("phase", "==", "main").get()).docs.map((d) => ({ id: d.id, isAnchor: !!d.data().isAnchor }));
-  const studies: { study: Omit<Study, "id">; samples: { id: string; isAnchor: boolean }[]; mode: "manual" | "random" }[] = [
+  const siMain = (await db.collection("samples").where("script", "==", "si").where("phase", "==", "main").get()).docs.map((d) => ({ id: d.id }));
+  const studies: { study: Omit<Study, "id">; samples: { id: string }[]; mode: "manual" | "random" }[] = [
     {
       study: { script: "si", type: "perception", title: "Sinhala perception pilot (demo)", instructions: "DEMO: score each page and tell us why.", sampleIds: pilotIds.si, open: true, overallScale: { min: 1, max: 7 }, legibilityScale: null, rubricVersion: null, publicToken: "demo-si", publicOpen: true, perReader: null, createdAt: Date.now() },
-      samples: pilotIds.si.map((id) => ({ id, isAnchor: false })),
+      samples: pilotIds.si.map((id) => ({ id })),
       mode: "manual",
     },
     {

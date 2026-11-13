@@ -68,7 +68,6 @@ export interface FormRubric {
 }
 
 export interface FormUi {
-  calibration: string;
   block: (n: number) => string;
   paragraph: (at: number, of: number) => string;
   help: string;
@@ -97,9 +96,6 @@ export interface FormUi {
   /** Label of the button that switches the form to the other language (only shown when the script has an English view). */
   switchLang: string;
   start: string;
-  calTitle: string;
-  calBody: (you: { overall: ReactNode; legibility: ReactNode }, ref: { overall: ReactNode; legibility: ReactNode }) => ReactNode;
-  continue: string;
   lookFor: string;
   details: string;
   moreFlags: string;
@@ -164,7 +160,6 @@ const SI: FormRubric = {
   flags: si.FLAGS,
   severity: si.SEVERITY,
   ui: {
-    calibration: "ක්‍රමාංකන ඡේදය",
     block: (n) => `පාඨය ${n}`,
     paragraph: (at, of) => `ඡේදය ${at} / ${of}`,
     help: "උපදෙස්",
@@ -195,14 +190,6 @@ const SI: FormRubric = {
     helpTitle: "ඇගයීමට පෙර කියවන්න",
     switchLang: "English",
     start: "හරි, ආරම්භ කරමු",
-    calTitle: "ක්‍රමාංකන යොමුව",
-    calBody: (you, ref) => (
-      <>
-        ඔබ සමස්ත අලංකාරයට <b>{you.overall}</b> සහ කියවීමේ පහසුවට <b>{you.legibility}</b> දුන්නා. පර්යේෂණ කණ්ඩායමේ යොමු ලකුණු: සමස්ත
-        අලංකාරය <b>{ref.overall}</b>, කියවීමේ පහසුව <b>{ref.legibility}</b>.
-      </>
-    ),
-    continue: "ඉදිරියට",
     lookFor: "බලන්න",
     details: "විස්තර",
     moreFlags: "+ වෙනත් ලකුණු (කියවිය නොහැකි අකුර, පිටපත් කිරීමේ වැරැද්ද, කපා හැරීම)",
@@ -311,7 +298,6 @@ const TA: FormRubric = {
   flags: ta.FLAGS,
   severity: ta.SEVERITY,
   ui: {
-    calibration: "அளவுத்திருத்தப் பந்தி",
     block: (n) => `உரை ${n}`,
     paragraph: (at, of) => `பந்தி ${at} / ${of}`,
     help: "வழிமுறைகள்",
@@ -342,14 +328,6 @@ const TA: FormRubric = {
     helpTitle: "மதிப்பிடுவதற்கு முன் படிக்கவும்",
     switchLang: "English",
     start: "சரி, தொடங்குவோம்",
-    calTitle: "அளவுத்திருத்தக் குறிப்பு",
-    calBody: (you, ref) => (
-      <>
-        நீங்கள் அழகுக்கு (H1) <b>{you.overall}</b>, வாசிப்புத் தெளிவுக்கு (L1) <b>{you.legibility}</b> வழங்கினீர்கள். ஆய்வுக் குழுவின்
-        குறிப்பு மதிப்பெண்கள்: H1 <b>{ref.overall}</b>, L1 <b>{ref.legibility}</b>.
-      </>
-    ),
-    continue: "தொடரவும்",
     lookFor: "கவனிக்க",
     details: "விவரம்",
     moreFlags: "+ வேறு குறிகள் (வாசிக்க இயலாத எழுத்து, அடித்தல், நகல் பிழை…)",
@@ -418,7 +396,6 @@ const TA_EN: FormRubric = {
   flags: ta.FLAGS_EN,
   severity: ta.SEVERITY_EN,
   ui: {
-    calibration: "Calibration paragraph",
     block: (n) => `Text ${n}`,
     paragraph: (at, of) => `Paragraph ${at} / ${of}`,
     help: "Instructions",
@@ -449,14 +426,6 @@ const TA_EN: FormRubric = {
     helpTitle: "Read before rating",
     switchLang: "தமிழ்",
     start: "OK, let’s start",
-    calTitle: "Calibration reference",
-    calBody: (you, ref) => (
-      <>
-        You gave <b>{you.overall}</b> for overall beauty (H1) and <b>{you.legibility}</b> for legibility (L1). The research team&rsquo;s
-        reference scores: H1 <b>{ref.overall}</b>, L1 <b>{ref.legibility}</b>.
-      </>
-    ),
-    continue: "Continue",
     lookFor: "Look for",
     details: "Details",
     moreFlags: "+ Other marks (illegible letter, strike-out, copying error…)",

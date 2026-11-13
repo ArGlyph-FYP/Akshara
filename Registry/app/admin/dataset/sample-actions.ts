@@ -84,21 +84,6 @@ export async function deleteSamples(_: unknown, fd: FormData) {
   });
 }
 
-export async function setAnchor(_: unknown, fd: FormData) {
-  return run(async () => {
-    await assertAdmin();
-    const id = str(fd, "id");
-    const isAnchor = str(fd, "isAnchor") === "1";
-    const n = (k: string) => (str(fd, k) === "" ? null : Number(str(fd, k)));
-    await col.samples().doc(id).update({
-      isAnchor,
-      anchorScores: isAnchor ? { overall: n("overall"), legibility: n("legibility"), note: str(fd, "note") } : null,
-    });
-    revalidatePath("/admin/dataset");
-    return isAnchor ? "Saved as calibration anchor" : "No longer an anchor";
-  });
-}
-
 export interface SampleDetail {
   id: string;
   code: string;
@@ -116,8 +101,6 @@ export interface SampleDetail {
   hasPage: boolean;
   rated: boolean;
   imageV: number;
-  isAnchor: boolean;
-  anchorScores: { overall: number | null; legibility: number | null; note: string } | null;
   items: {
     rater: string;
     study: string;
@@ -165,8 +148,6 @@ export async function sampleDetail(id: string): Promise<SampleDetail | { error: 
       hasPage: !!sample.sourcePath,
       rated: ratings.length > 0,
       imageV: sample.editedAt ?? sample.uploadedAt,
-      isAnchor: sample.isAnchor,
-      anchorScores: sample.anchorScores,
       items: assignments.map((a) => {
         const r = byAssignment.get(a.id);
         return {

@@ -151,7 +151,16 @@ export function DatasetView({
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="Writers" value={writers.filter((w) => w.status === "active").length} />
+        {/* Writers with scans in this dataset; writers are shared across datasets, so the registered total is shown beside it. */}
+        <Stat
+          label="Writers"
+          value={
+            <>
+              {Object.keys(scanCount).length}
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">of {writers.filter((w) => w.status === "active").length} registered</span>
+            </>
+          }
+        />
         <Stat label="Scans" value={rows.length} />
         <Stat label="Approved" value={approved} tone="good" />
         <Stat label="Need checking" value={unchecked} tone={unchecked ? "warn" : undefined} />

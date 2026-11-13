@@ -1,6 +1,6 @@
 "use client";
 
-import { Anchor, Check, Crop, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Crop, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,15 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { act } from "@/lib/client-action";
 import { sampleLabel } from "@/lib/codes";
 import { QC_LABEL, type SampleRow } from "@/lib/dataset-types";
 import type { Box } from "@/lib/form-split";
 import type { SampleStatus } from "@/lib/types";
 import { BoxEditor, ZoomRegion } from "./BoxEditor";
-import { deleteSamples, sampleDetail, setAnchor, setStatus, type SampleDetail } from "./sample-actions";
+import { deleteSamples, sampleDetail, setStatus, type SampleDetail } from "./sample-actions";
 import { changeFormCode } from "./upload-actions";
 import { recropSample } from "./upload-client";
 
@@ -30,7 +28,6 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
   const router = useRouter();
   const [detail, setDetail] = useState<SampleDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [anchor, setAnchorState] = useState({ on: false, overall: "", legibility: "", note: "" });
   const [codeDraft, setCodeDraft] = useState("");
   const [savingCode, setSavingCode] = useState(false);
   /** Paragraph box being adjusted on the original page; null when not editing. */
@@ -46,12 +43,6 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
     if ("error" in d) return setError(d.error);
     setDetail(d);
     setCodeDraft(d.code);
-    setAnchorState({
-      on: d.isAnchor,
-      overall: d.anchorScores?.overall?.toString() ?? "",
-      legibility: d.anchorScores?.legibility?.toString() ?? "",
-      note: d.anchorScores?.note ?? "",
-    });
   }
 
   useEffect(() => {
@@ -274,45 +265,6 @@ export function SampleSheet({ row, onClose }: { row: SampleRow | null; onClose: 
                           </Button>
                         )}
                     </div>
-                  </section>
-
-                  <section className="space-y-2 rounded-lg border p-3">
-                    <label className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Anchor className="size-4" /> Calibration anchor
-                      </span>
-                      <Switch checked={anchor.on} onCheckedChange={(on) => setAnchorState({ ...anchor, on })} />
-                    </label>
-                    <p className="text-xs text-muted-foreground">
-                      Shown first to every rater in rubric studies; after rating it they see your reference scores.
-                    </p>
-                    {anchor.on && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="mb-1 text-xs text-muted-foreground">Overall</Label>
-                          <Input type="number" value={anchor.overall} onChange={(e) => setAnchorState({ ...anchor, overall: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label className="mb-1 text-xs text-muted-foreground">Legibility</Label>
-                          <Input type="number" value={anchor.legibility} onChange={(e) => setAnchorState({ ...anchor, legibility: e.target.value })} />
-                        </div>
-                        <div className="col-span-2">
-                          <Label className="mb-1 text-xs text-muted-foreground">Explanation for raters</Label>
-                          <Textarea rows={2} value={anchor.note} onChange={(e) => setAnchorState({ ...anchor, note: e.target.value })} />
-                        </div>
-                      </div>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        if (await act(setAnchor, { id: row.id, isAnchor: anchor.on, overall: anchor.overall, legibility: anchor.legibility, note: anchor.note })) {
-                          router.refresh();
-                        }
-                      }}
-                    >
-                      Save anchor
-                    </Button>
                   </section>
 
                   <section className="space-y-2">

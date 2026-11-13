@@ -11,7 +11,6 @@ export interface SampleRow {
   part: number | null;
   phase: Phase;
   status: SampleStatus;
-  isAnchor: boolean;
   writerId: string;
   uploadedAt: number;
   /** Changes when the image is re-cut, so browsers fetch the new one. */
