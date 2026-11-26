@@ -819,7 +819,7 @@ function LevelQuestion(props: {
       {props.question && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{props.question}</p>}
       {open && (
         <div className="mt-1.5 space-y-2 rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed">
-          <p>{props.lookFor}</p>
+          <p className="whitespace-pre-line">{props.lookFor}</p>
           {props.notJudged && <p className="text-muted-foreground">{props.notJudged}</p>}
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
             {props.options.map((o) => (
