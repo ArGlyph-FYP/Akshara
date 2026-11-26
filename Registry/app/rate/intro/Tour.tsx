@@ -9,7 +9,7 @@ import { BAND_NAMES, BAND_RANGES, COUNT_NAMES, CRITERIA, LEVEL_NAMES, OVERALL, b
 import { cn } from "@/lib/utils";
 import { recordTraining } from "../actions";
 
-/** A short Sinhala tour of the main-study form (Rubric v_final, 4 cards), which raters can skip. */
+/** A short Sinhala tour of the main-study form (Rubric v_final, Sinhala version v1 text, 4 cards), which raters can skip. */
 export function Tour({ studyId }: { studyId: string }) {
   const router = useRouter();
   const [step, setStep] = useState<number | null>(null); // null = the choice screen
@@ -47,15 +47,15 @@ export function Tour({ studyId }: { studyId: string }) {
       body: (
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <b>සමස්ත අලංකාරය (O)</b> යනු ලිවීම සමස්තයක් ලෙස කෙතරම් හොඳින් පෙනේද යන්නයි (සුසංයෝගය, පිළිවෙළ, රිද්මය). එය{" "}
+            <b>සමස්ත අලංකාරය (O)</b> යනු ලිවීම සමස්තයක් ලෙස කොතරම් ලස්සනට පෙනේද යන්නයි (ගැළපීම, පිළිවෙළ, රිද්මය). එය{" "}
             <b>කියවීමේ පහසුවෙන් (L)</b> වෙනස් දෙයකි.
           </li>
-          <li>මුළු ඡේදයටම සාමාන්‍ය දේ අනුව ඇගයන්න. එක් වරක් පමණක් සිදු වූ වැරැද්දක් නිසා ලකුණ අඩු නොකරන්න; නැවත නැවත සිදු වන හෝ බරපතල ගැටලු ගණන් ගන්න.</li>
+          <li>මුළු ඡේදයේම සාමාන්‍යයෙන් පෙනෙන දේ අනුව ඇගයීම කරන්න. එක් තැනක ඇති තනි වරදක් නිසා පමණක් ලකුණ අඩු නොකරන්න; නැවත නැවත පෙනෙන හෝ බරපතළ ගැටලු සලකා බලන්න.</li>
           <li>
-            ලියා ඇති දේ පමණක් විනිශ්චය කරන්න. පාඨයට සාපේක්ෂව අකුරක් හෝ ලකුණක් අඩු, අමතර හෝ වැරදි නම් <b>පිටපත් කිරීමේ වැරැද්ද</b> තෝරන්න; O සහ L
-            ඇතුළු කිසිදු ලකුණක් එය නිසා අඩු නොකරන්න.
+            ලියා ඇති දේ පමණක් ඇගයීමට ලක් කරන්න. පාඨයට සාපේක්ෂව අකුරක් හෝ ලකුණක් අතහැර, අමතරව හෝ වැරදියට ලියා ඇත්නම් <b>පිටපත් කිරීමේ දෝෂ</b> ලකුණු කරන්න; O සහ L
+            ඇතුළු කිසිම ලකුණක් එම දෝෂය නිසා අඩු නොකරන්න.
           </li>
-          <li>සෑම ගැටලුවක්ම එක් වරක් පමණක්, එය අයත් නිර්ණායකය යටතේ ගණන් ගන්න.</li>
+          <li>සෑම ගැටලුවක්ම එක් වරක් පමණක්, එය අයත් නිර්ණායකය යටතේ සලකන්න.</li>
         </ul>
       ),
     },
@@ -72,7 +72,7 @@ export function Tour({ studyId }: { studyId: string }) {
             ))}
           </div>
           <p>
-            පළමුව ගැළපෙන කාණ්ඩය තෝරා, පසුව එහි අඩු හෝ වැඩි අංකය තෝරන්න. <b>O</b> ඡේදය තත්පර 10ක් පමණ බලා මුල් හැඟීම අනුව දෙන්න; පසුව එය වෙනස් නොකරන්න.
+            පළමුව ගැළපෙන පරාසය තෝරා, පසුව එහි අඩු හෝ වැඩි අංකය තෝරන්න. <b>O</b> ඡේදය තත්පර 10ක් පමණ බලා පළමු හැඟීම අනුව දෙන්න; පසුව එය වෙනස් නොකරන්න.
           </p>
           <div className="rounded-lg border p-3">
             <p className="text-xs font-medium text-muted-foreground">උත්සාහ කර බලන්න: අංකයක් tap කරන්න</p>
@@ -101,7 +101,7 @@ export function Tour({ studyId }: { studyId: string }) {
           </p>
           <p className="rounded-lg bg-muted/60 p-3">{COUNT_NAMES.map((n, i) => `${i}: ${n}`).join(" · ")}</p>
           <p className="text-muted-foreground">
-            “බලන්න” tap කළ විට විනිශ්චය කළ යුතු දේ සහ සෑම විකල්පයකම විස්තරය පෙනේ. විනිශ්චය කිරීමට කිසිවක් නැති විට පමණක් “අදාළ නොවේ” තෝරන්න (උදා: එක් පේළියක ඡේදයක A6c).
+            “බලන්න” tap කළ විට බලන්නේ කුමක්ද යන්න සහ සෑම විකල්පයකම විස්තරය පෙනේ. ඇගයීමට කිසිවක් නැති විට පමණක් “අදාළ නොවේ” තෝරන්න (උදා: එක් පේළියක ඡේදයක A6c).
           </p>
           <span className="block text-xs text-muted-foreground">
             {CRITERIA.filter((c) => !c.group).map((c) => `${c.code} ${c.label}`).join(" · ")}
@@ -121,8 +121,8 @@ export function Tour({ studyId }: { studyId: string }) {
               <b>A1–A8</b> (A6 ප්‍රශ්න තුනක් සමඟ).
             </li>
             <li>
-              අවශ්‍ය නම් <b>පිටපත් කිරීමේ වැරැද්ද</b> තෝරන්න. රූපය බොඳ, කැපී ගොස් හෝ බොහෝ දුරට කපා හැර ඇත්නම් <b>ඇගයිය නොහැක</b> තෝරා හේතුව ලියන්න; එවිට අනෙක්
-              ප්‍රශ්න හිස්ව තබන්න.
+              අවශ්‍ය නම් <b>පිටපත් කිරීමේ දෝෂ</b> ලකුණු කරන්න. රූපය බොඳ වී, කැපී ගොස් හෝ වැඩි කොටසක් කපා හැර ඇත්නම් <b>ඇගයිය නොහැක</b> තෝරා හේතුව ලියන්න; එවිට ඉතිරි
+              කොටස හිස්ව තබන්න.
             </li>
           </ol>
           <p>
