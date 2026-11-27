@@ -16,3 +16,9 @@
 - Normalise: page registration, box/template removal, white background, soft-black ink, fixed crop frame, no participant code.
 - Do not change the writing: no hard binarisation, deskewing lines, slant/size fixes, stroke thickening/thinning, or removal of crossings-out.
 - Freeze the version before the rating pilot; pilot and main study use the same version.
+
+## Raw data notes (data/01_raw)
+- 220 scans copied from `Data Collection/Sinhala-Scans`, renamed `SI-001.png` … `SI-220.png` in scan order. Originals unchanged.
+- SI-015 / SI-016: scanned out of order; named by the code written on the page (SI-015 = IMG_20261107_0016, SI-016 = IMG_20261107_0015).
+- SI-079 (IMG_20261119_0079): code box blank; ID assigned by scan order. Check against the consent sheet.
+- SI-115 (IMG_20261120_0115): code box reads "118" (SI-118 is a different writer); ID assigned by scan order. Check against the consent sheet.
