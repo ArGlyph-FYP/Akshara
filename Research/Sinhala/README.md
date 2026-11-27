@@ -1,0 +1,18 @@
+# Akshara — Sinhala research
+
+## Folders
+- `data/01_raw` — original scans. Read-only; never edit.
+- `data/02_intermediate` — registered pages, ink masks.
+- `data/03_processed` — normalised paragraph images (what raters and the model see).
+- `data/04_annotations` — ratings and weak-region annotations.
+- `data/05_final` — final dataset splits for training and evaluation.
+- `templates/` — collection form template / box geometry.
+- `notebooks/` — 01 preprocessing → 06 evaluation.
+- `src/` — reusable code moved out of notebooks.
+- `configs/` — pipeline settings (e.g. `display_v1`).
+- `results/` — figures, tables, metrics.
+
+## Display rules (display_v1)
+- Normalise: page registration, box/template removal, white background, soft-black ink, fixed crop frame, no participant code.
+- Do not change the writing: no hard binarisation, deskewing lines, slant/size fixes, stroke thickening/thinning, or removal of crossings-out.
+- Freeze the version before the rating pilot; pilot and main study use the same version.
